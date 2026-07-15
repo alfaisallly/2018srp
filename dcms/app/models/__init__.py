@@ -139,10 +139,10 @@ class DataCenter(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     racks: Mapped[list["Rack"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
-    devices: Mapped[list["Device"]] = relationship(back_populates="datacenter")
-    servers: Mapped[list["Server"]] = relationship(back_populates="datacenter")
-    storage_systems: Mapped[list["StorageSystem"]] = relationship(back_populates="datacenter")
-    network_maps: Mapped[list["NetworkMap"]] = relationship(back_populates="datacenter")
+    devices: Mapped[list["Device"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
+    servers: Mapped[list["Server"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
+    storage_systems: Mapped[list["StorageSystem"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
+    network_maps: Mapped[list["NetworkMap"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
 
 
 class Rack(Base):

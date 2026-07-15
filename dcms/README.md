@@ -95,15 +95,28 @@ GET    /api/v1/reports/datacenter/{id}/pdf
 | **operator** | إدارة الأجهزة، التنبيهات، الخرائط، التقارير |
 | **viewer** | عرض فقط + التقارير |
 
+## مراكز البيانات (العراق)
+
+| المركز | الاسم | النطاق |
+|--------|-------|--------|
+| مديرية المرور العامة | DC-MOROOR-01 | 172.16.10.0/24 |
+| وزارة الداخلية | DC-MOI-01 | 172.16.20.0/24 |
+
+لتحديث البيانات وحذف أي بيانات تجريبية قديمة (مثل الرياض):
+
+```powershell
+python scripts\reset_iraq_sites.py
+```
+
 ## إضافة جهاز
 
 ```json
 POST /api/v1/devices
 {
   "datacenter_id": 1,
-  "name": "Core-SW-01",
-  "hostname": "core-sw-01",
-  "ip_address": "10.0.1.1",
+  "name": "MR-Core-SW-01",
+  "hostname": "mr-core-sw-01",
+  "ip_address": "172.16.10.1",
   "vendor": "cisco",
   "credentials": [
     { "protocol": "snmp", "community": "public", "port": 161 }
