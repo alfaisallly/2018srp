@@ -30,6 +30,13 @@ class VendorType(str, enum.Enum):
     GENERIC = "generic"
 
 
+class DeviceType(str, enum.Enum):
+    SWITCH = "switch"
+    FIREWALL = "firewall"
+    ROUTER = "router"
+    OTHER = "other"
+
+
 class DeviceStatus(str, enum.Enum):
     ONLINE = "online"
     OFFLINE = "offline"
@@ -192,6 +199,7 @@ class Device(Base):
     hostname: Mapped[str] = mapped_column(String(255))
     ip_address: Mapped[str] = mapped_column(String(45), index=True)
     vendor: Mapped[VendorType] = mapped_column(Enum(VendorType))
+    device_type: Mapped[DeviceType] = mapped_column(Enum(DeviceType), default=DeviceType.SWITCH)
     model: Mapped[str | None] = mapped_column(String(128))
     serial_number: Mapped[str | None] = mapped_column(String(128))
     status: Mapped[DeviceStatus] = mapped_column(Enum(DeviceStatus), default=DeviceStatus.UNKNOWN)

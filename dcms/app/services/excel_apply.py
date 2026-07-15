@@ -19,6 +19,7 @@ from app.models import (
     StorageVendor,
     VendorType,
 )
+from app.services.datacenter_overview import infer_device_type
 from app.services.excel_import import ParsedAsset, ParsedLink, build_topology
 
 
@@ -93,12 +94,14 @@ async def apply_excel_import(
                     continue
 
             if asset.asset_type == "device":
+                vendor = _map_vendor(asset.vendor)
                 dev = Device(
                     datacenter_id=dc.id,
                     name=asset.name,
                     hostname=asset.hostname,
                     ip_address=asset.ip_address,
-                    vendor=_map_vendor(asset.vendor),
+                    vendor=vendor,
+                    device_type=infer_device_type(vendor, asset.name, asset.model),
                     model=asset.model,
                 )
                 session.add(dev)

@@ -60,6 +60,16 @@ async def _migrate_enums(conn):
             await conn.execute(text(f"ALTER TYPE protocoltype ADD VALUE IF NOT EXISTS '{val}'"))
         except Exception:
             pass
+    try:
+        await conn.execute(text("CREATE TYPE devicetype AS ENUM ('switch', 'firewall', 'router', 'other')"))
+    except Exception:
+        pass
+    try:
+        await conn.execute(text("ALTER TABLE devices ADD COLUMN IF NOT EXISTS device_type devicetype DEFAULT 'switch'"))
+        await conn.execute(text("UPDATE devices SET device_type = 'firewall' WHERE vendor = 'FORTINET'"))
+        await conn.execute(text("UPDATE devices SET device_type = 'switch' WHERE device_type IS NULL"))
+    except Exception:
+        pass
 
 
 @asynccontextmanager

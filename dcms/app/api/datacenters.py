@@ -9,10 +9,12 @@ from app.database import get_db
 from app.models import DataCenter, Permission, Rack, User
 from app.schemas import (
     DataCenterCreate,
+    DataCenterOverview,
     DataCenterResponse,
     RackCreate,
     RackResponse,
 )
+from app.services.datacenter_overview import get_datacenter_overview
 
 router = APIRouter(prefix="/datacenters", tags=["Data Centers"])
 
@@ -50,6 +52,19 @@ async def get_datacenter(
     if not dc:
         raise HTTPException(status_code=404, detail="Data center not found")
     return dc
+
+
+@router.get("/{datacenter_id}/overview", response_model=DataCenterOverview)
+async def datacenter_overview(
+    datacenter_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission(Permission.VIEW))],
+):
+    try:
+        data = await get_datacenter_overview(db, datacenter_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Data center not found")
+    return DataCenterOverview(**data)
 
 
 @router.post("/{datacenter_id}/racks", response_model=RackResponse, status_code=status.HTTP_201_CREATED)

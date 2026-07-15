@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import AlertSeverity, AlertStatus, DeviceStatus, Permission, ProtocolType, ServerOSType, ServerRole, StorageType, StorageVendor, VendorType
+from app.models import AlertSeverity, AlertStatus, DeviceStatus, DeviceType, Permission, ProtocolType, ServerOSType, ServerRole, StorageType, StorageVendor, VendorType
 
 
 class TokenResponse(BaseModel):
@@ -77,6 +77,88 @@ class DataCenterResponse(BaseModel):
     created_at: datetime
 
 
+class DataCenterOverviewSummary(BaseModel):
+    switches: int = 0
+    firewalls: int = 0
+    routers: int = 0
+    other_devices: int = 0
+    total_devices: int = 0
+    online_devices: int = 0
+    servers: int = 0
+    online_servers: int = 0
+    storage: int = 0
+    online_storage: int = 0
+    open_alerts: int = 0
+    critical_alerts: int = 0
+    network_maps: int = 0
+    total_sensors: int = 0
+    sensors_up: int = 0
+    sensors_warning: int = 0
+    sensors_down: int = 0
+
+
+class DataCenterAssetBrief(BaseModel):
+    id: int
+    name: str
+    hostname: str
+    ip_address: str
+    vendor: str | None = None
+    device_type: str | None = None
+    model: str | None = None
+    os_type: str | None = None
+    server_role: str | None = None
+    storage_type: str | None = None
+    total_capacity_tb: float | None = None
+    used_capacity_tb: float | None = None
+    status: str
+    last_seen: datetime | None = None
+
+
+class DataCenterAlertBrief(BaseModel):
+    id: int
+    title: str
+    message: str
+    severity: str
+    status: str
+    source: str
+    created_at: datetime
+
+
+class DataCenterSensorBrief(BaseModel):
+    id: int
+    name: str
+    asset_type: str
+    metric_key: str
+    last_value: float | None = None
+    unit: str | None = None
+    last_status: str
+    status_color: str
+    status_label: str
+    last_check_at: datetime | None = None
+
+
+class DataCenterMapBrief(BaseModel):
+    id: int
+    name: str
+    description: str | None = None
+    topology: dict = Field(default_factory=dict)
+    updated_at: datetime
+
+
+class DataCenterOverview(BaseModel):
+    datacenter: DataCenterResponse
+    summary: DataCenterOverviewSummary
+    switches: list[DataCenterAssetBrief]
+    firewalls: list[DataCenterAssetBrief]
+    routers: list[DataCenterAssetBrief]
+    other_devices: list[DataCenterAssetBrief]
+    servers: list[DataCenterAssetBrief]
+    storage: list[DataCenterAssetBrief]
+    network_maps: list[DataCenterMapBrief]
+    alerts: list[DataCenterAlertBrief]
+    sensors: list[DataCenterSensorBrief]
+
+
 class RackCreate(BaseModel):
     name: str
     row: str | None = None
@@ -109,6 +191,7 @@ class DeviceCreate(BaseModel):
     hostname: str
     ip_address: str
     vendor: VendorType
+    device_type: DeviceType = DeviceType.SWITCH
     model: str | None = None
     position_u: int | None = None
     height_u: int = 1
@@ -126,6 +209,7 @@ class DeviceResponse(BaseModel):
     hostname: str
     ip_address: str
     vendor: VendorType
+    device_type: DeviceType
     model: str | None
     serial_number: str | None
     status: DeviceStatus

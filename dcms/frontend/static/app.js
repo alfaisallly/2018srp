@@ -1,8 +1,11 @@
 const API = '/api/v1';
 let token = localStorage.getItem('dcms_token');
 let network = null;
+let dcNetwork = null;
 let currentUser = null;
 let currentPermissions = new Set();
+let currentDcOverview = null;
+let selectedDatacenterId = null;
 
 const ROLE_LABELS = {
   admin: 'مدير النظام',
@@ -54,6 +57,7 @@ function applyPermissionsUI() {
   document.getElementById('poll-all-storage')?.classList.toggle('hidden', !canManage('manage_storage'));
   document.getElementById('download-report')?.classList.toggle('hidden', !hasPerm('view_reports'));
   document.getElementById('seed-sensors')?.classList.toggle('hidden', !canManage('manage_devices'));
+  document.getElementById('show-add-dc')?.classList.toggle('hidden', !hasPerm('manage_datacenters'));
 }
 
 function logout() {
@@ -130,6 +134,11 @@ async function initApp() {
 }
 
 async function loadDashboard() {
+  document.getElementById('dc-list-view').classList.remove('hidden');
+  document.getElementById('dc-detail-view').classList.add('hidden');
+  selectedDatacenterId = null;
+  currentDcOverview = null;
+
   const stats = await api('/reports/dashboard');
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="value">${stats.datacenters}</div><div class="label">مراكز البيانات</div></div>
@@ -137,20 +146,230 @@ async function loadDashboard() {
     <div class="stat-card"><div class="value">${stats.total_servers || 0}</div><div class="label">السيرفرات</div></div>
     <div class="stat-card"><div class="value">${stats.total_storage || 0}</div><div class="label">التخزين</div></div>
     <div class="stat-card"><div class="value status-online">${stats.online_devices}</div><div class="label">شبكة متصلة</div></div>
-    <div class="stat-card"><div class="value status-online">${stats.online_servers || 0}</div><div class="label">سيرفرات متصلة</div></div>
-    <div class="stat-card"><div class="value status-online">${stats.online_storage || 0}</div><div class="label">تخزين متصل</div></div>
     <div class="stat-card"><div class="value">${stats.open_alerts}</div><div class="label">تنبيهات مفتوحة</div></div>
-    <div class="stat-card"><div class="value severity-critical">${stats.critical_alerts}</div><div class="label">حرجة</div></div>
     <div class="stat-card"><div class="value">${stats.total_sensors || 0}</div><div class="label">الحساسات</div></div>
-    <div class="stat-card"><div class="value sensor-status-up">${stats.sensors_up || 0}</div><div class="label">حساسات طبيعية</div></div>
-    <div class="stat-card"><div class="value sensor-status-warning">${stats.sensors_warning || 0}</div><div class="label">تحذير</div></div>
-    <div class="stat-card"><div class="value sensor-status-down">${stats.sensors_down || 0}</div><div class="label">تعطل</div></div>
   `;
+
   const dcs = await api('/datacenters');
-  document.getElementById('datacenters-list').innerHTML = dcs.length
-    ? dcs.map(d => `<p><strong>${d.name}</strong> — ${d.location || 'بدون موقع'}</p>`).join('')
-    : '<p style="color:var(--muted)">لا توجد مراكز بيانات بعد</p>';
+  if (!dcs.length) {
+    document.getElementById('datacenters-grid').innerHTML =
+      '<p style="color:var(--muted);grid-column:1/-1">لا توجد مراكز بيانات — أضف مركزاً للبدء</p>';
+    return;
+  }
+
+  const overviews = await Promise.all(dcs.map(d => api(`/datacenters/${d.id}/overview`).catch(() => null)));
+  document.getElementById('datacenters-grid').innerHTML = dcs.map((d, i) => {
+    const ov = overviews[i];
+    const s = ov?.summary || {};
+    return `<div class="dc-card" onclick="openDatacenterDetail(${d.id})">
+      <h3>${d.name}</h3>
+      <p class="dc-meta">${d.location || 'بدون موقع'}${d.description ? ' — ' + d.description : ''}</p>
+      <div class="dc-chips">
+        <span class="chip-sm">🔀 ${s.switches || 0} سويج</span>
+        <span class="chip-sm">🛡️ ${s.firewalls || 0} جدار</span>
+        <span class="chip-sm">🖥️ ${s.servers || 0} خادم</span>
+        <span class="chip-sm">💾 ${s.storage || 0} تخزين</span>
+        <span class="chip-sm">⚠️ ${s.open_alerts || 0} تنبيه</span>
+      </div>
+    </div>`;
+  }).join('');
 }
+
+const DEVICE_TYPE_LABELS = { switch: 'سويج', firewall: 'جدار حماية', router: 'راوتر', other: 'أخرى' };
+const VENDOR_LABELS = { cisco: 'Cisco', juniper: 'Juniper', fortinet: 'Fortinet', generic: 'Generic' };
+const ASSET_TYPE_LABELS = { device: 'شبكة', server: 'سيرفر', storage: 'تخزين' };
+
+function assetTableRows(items, type) {
+  if (!items?.length) return `<tr><td colspan="6" style="text-align:center;color:var(--muted)">لا توجد أصول</td></tr>`;
+  return items.map(a => {
+    const extra = type === 'server'
+      ? `<td>${a.os_type || '—'}</td><td>${a.server_role || '—'}</td>`
+      : type === 'storage'
+        ? `<td>${a.vendor || '—'}</td><td>${a.storage_type || '—'}</td>`
+        : `<td>${VENDOR_LABELS[a.vendor] || a.vendor || '—'}</td><td>${DEVICE_TYPE_LABELS[a.device_type] || a.device_type || '—'}</td>`;
+    return `<tr>
+      <td>${a.name}</td><td>${a.ip_address}</td>${extra}
+      <td class="status-${a.status}">${a.status}</td>
+      <td>${a.last_seen ? new Date(a.last_seen).toLocaleString('ar') : '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function openDatacenterDetail(dcId) {
+  selectedDatacenterId = dcId;
+  currentDcOverview = await api(`/datacenters/${dcId}/overview`);
+  document.getElementById('dc-list-view').classList.add('hidden');
+  document.getElementById('dc-detail-view').classList.remove('hidden');
+  const dc = currentDcOverview.datacenter;
+  document.getElementById('dc-detail-name').textContent = dc.name;
+  document.getElementById('dc-detail-location').textContent =
+    [dc.location, dc.description, dc.contact_email].filter(Boolean).join(' — ') || 'بدون تفاصيل';
+
+  const s = currentDcOverview.summary;
+  document.getElementById('dc-detail-stats').innerHTML = `
+    <div class="stat-card"><div class="value">${s.switches}</div><div class="label">سويجات</div></div>
+    <div class="stat-card"><div class="value">${s.firewalls}</div><div class="label">جدران حماية</div></div>
+    <div class="stat-card"><div class="value">${s.servers}</div><div class="label">خوادم</div></div>
+    <div class="stat-card"><div class="value">${s.storage}</div><div class="label">تخزين</div></div>
+    <div class="stat-card"><div class="value status-online">${s.online_devices + s.online_servers + s.online_storage}</div><div class="label">متصل</div></div>
+    <div class="stat-card"><div class="value">${s.open_alerts}</div><div class="label">تنبيهات</div></div>
+    <div class="stat-card"><div class="value sensor-status-up">${s.sensors_up}</div><div class="label">حساسات طبيعية</div></div>
+    <div class="stat-card"><div class="value sensor-status-down">${s.sensors_down}</div><div class="label">حساسات متعطلة</div></div>
+  `;
+
+  document.querySelectorAll('.dc-tab').forEach(t => t.classList.toggle('active', t.dataset.dcTab === 'overview'));
+  renderDcTab('overview');
+}
+
+function renderDcTab(tab) {
+  if (!currentDcOverview) return;
+  const el = document.getElementById('dc-tab-content');
+  const s = currentDcOverview.summary;
+  const dc = currentDcOverview.datacenter;
+
+  if (tab === 'overview') {
+    el.innerHTML = `
+      <h3>نظرة عامة — ${dc.name}</h3>
+      <div class="dc-overview-grid">
+        <div class="dc-overview-card"><h4>🔀 السويجات (${s.switches})</h4><ul>${currentDcOverview.switches.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || '<li>لا يوجد</li>'}</ul></div>
+        <div class="dc-overview-card"><h4>🛡️ جدران الحماية (${s.firewalls})</h4><ul>${currentDcOverview.firewalls.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || '<li>لا يوجد</li>'}</ul></div>
+        <div class="dc-overview-card"><h4>🖥️ الخوادم (${s.servers})</h4><ul>${currentDcOverview.servers.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || '<li>لا يوجد</li>'}</ul></div>
+        <div class="dc-overview-card"><h4>💾 التخزين (${s.storage})</h4><ul>${currentDcOverview.storage.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || '<li>لا يوجد</li>'}</ul></div>
+        <div class="dc-overview-card"><h4>⚠️ تنبيهات (${s.open_alerts})</h4><ul>${currentDcOverview.alerts.slice(0,5).map(a=>`<li class="severity-${a.severity}">${a.title}</li>`).join('') || '<li>لا يوجد</li>'}</ul></div>
+        <div class="dc-overview-card"><h4>📊 مخططات (${s.network_maps})</h4><ul>${currentDcOverview.network_maps.map(m=>`<li>${m.name}</li>`).join('') || '<li>لا يوجد — استورد Excel أو أنشئ مخططاً</li>'}</ul></div>
+      </div>`;
+    return;
+  }
+
+  if (tab === 'switches') {
+    el.innerHTML = `<h3>السويجات</h3><table><thead><tr><th>الاسم</th><th>IP</th><th>المورّد</th><th>النوع</th><th>الحالة</th><th>آخر ظهور</th></tr></thead><tbody>${assetTableRows(currentDcOverview.switches, 'device')}</tbody></table>`;
+    return;
+  }
+
+  if (tab === 'firewalls') {
+    el.innerHTML = `<h3>جدران الحماية</h3><table><thead><tr><th>الاسم</th><th>IP</th><th>المورّد</th><th>النوع</th><th>الحالة</th><th>آخر ظهور</th></tr></thead><tbody>${assetTableRows(currentDcOverview.firewalls, 'device')}</tbody></table>`;
+    return;
+  }
+
+  if (tab === 'servers') {
+    el.innerHTML = `<h3>الخوادم</h3><table><thead><tr><th>الاسم</th><th>IP</th><th>نظام التشغيل</th><th>الدور</th><th>الحالة</th><th>آخر ظهور</th></tr></thead><tbody>${assetTableRows(currentDcOverview.servers, 'server')}</tbody></table>`;
+    return;
+  }
+
+  if (tab === 'storage') {
+    el.innerHTML = `<h3>أنظمة التخزين</h3><table><thead><tr><th>الاسم</th><th>IP</th><th>المورّد</th><th>النوع</th><th>الحالة</th><th>آخر ظهور</th></tr></thead><tbody>${assetTableRows(currentDcOverview.storage, 'storage')}</tbody></table>`;
+    return;
+  }
+
+  if (tab === 'topology') {
+    const maps = currentDcOverview.network_maps;
+    if (!maps.length) {
+      el.innerHTML = `<h3>مخطط الربط</h3><p class="muted">لا يوجد مخطط لهذا المركز. استورد ملف Excel مع ورقة Links أو أنشئ مخططاً من تبويب خريطة الشبكة.</p>`;
+      return;
+    }
+    const map = maps[0];
+    el.innerHTML = `<h3>مخطط الربط — ${map.name}</h3>
+      ${maps.length > 1 ? `<p class="muted">يعرض: ${map.name} (${maps.length} مخططات متاحة)</p>` : ''}
+      <div id="dc-topology-graph"></div>`;
+    setTimeout(() => renderDcTopology(map.topology), 50);
+    return;
+  }
+
+  if (tab === 'sensors') {
+    const sensors = currentDcOverview.sensors;
+    el.innerHTML = `<h3>الحساسات</h3><table><thead><tr><th></th><th>الحساس</th><th>النوع</th><th>القيمة</th><th>الحالة</th><th>آخر فحص</th></tr></thead><tbody>
+      ${sensors.length ? sensors.map(s => `<tr>
+        <td><span class="sensor-dot ${s.last_status}"></span></td>
+        <td>${s.name}</td><td>${ASSET_TYPE_LABELS[s.asset_type] || s.asset_type}</td>
+        <td>${s.last_value != null ? s.last_value + (s.unit || '') : '—'}</td>
+        <td class="sensor-status-${s.last_status}">${s.status_label}</td>
+        <td>${s.last_check_at ? new Date(s.last_check_at).toLocaleString('ar') : '—'}</td>
+      </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted)">لا توجد حساسات — شغّل الفحص</td></tr>'}
+    </tbody></table>`;
+    return;
+  }
+
+  if (tab === 'alerts') {
+    const alerts = currentDcOverview.alerts;
+    el.innerHTML = `<h3>التنبيهات</h3><table><thead><tr><th>العنوان</th><th>الخطورة</th><th>الحالة</th><th>المصدر</th><th>التاريخ</th><th>إجراء</th></tr></thead><tbody>
+      ${alerts.length ? alerts.map(a => `<tr>
+        <td>${a.title}</td><td class="severity-${a.severity}">${a.severity}</td><td>${a.status}</td>
+        <td>${a.source}</td><td>${new Date(a.created_at).toLocaleString('ar')}</td>
+        <td>${a.status === 'open' && hasPerm('manage_alerts') ? `<button class="btn-sm" onclick="ackAlert(${a.id});openDatacenterDetail(${selectedDatacenterId})">اعتماد</button>` : '—'}</td>
+      </tr>`).join('') : '<tr><td colspan="6" style="text-align:center;color:var(--muted)">لا توجد تنبيهات مفتوحة</td></tr>'}
+    </tbody></table>`;
+    return;
+  }
+
+  if (tab === 'reports') {
+    el.innerHTML = `<h3>تقارير ${dc.name}</h3>
+      <p>تصدير تقرير PDF/HTML يشمل السويجات وجدران الحماية والخوادم والتخزين والحساسات والتنبيهات.</p>
+      <div class="form-actions">
+        <button id="dc-download-report">تحميل تقرير المركز</button>
+        <button class="btn-secondary" onclick="showPanel('reports')">فتح تبويب التقارير</button>
+      </div>`;
+    document.getElementById('dc-download-report')?.addEventListener('click', () => downloadDcReport(selectedDatacenterId));
+  }
+}
+
+function renderDcTopology(topology) {
+  const container = document.getElementById('dc-topology-graph');
+  if (!container || !topology?.nodes?.length) return;
+  if (dcNetwork) { dcNetwork.destroy(); dcNetwork = null; }
+  const nodes = new vis.DataSet(topology.nodes.map(n => ({
+    id: n.id, label: n.label || n.id, color: n.color || '#94a3b8', shape: n.shape || 'dot',
+  })));
+  const edges = new vis.DataSet((topology.edges || []).map((e, i) => ({
+    id: i, from: e.from, to: e.to, label: e.label || '', arrows: 'to',
+  })));
+  dcNetwork = new vis.Network(container, { nodes, edges }, {
+    physics: { stabilization: true },
+    interaction: { hover: true },
+    edges: { font: { color: '#94a3b8', size: 10 } },
+  });
+}
+
+async function downloadDcReport(dcId) {
+  const blob = await api(`/reports/datacenter/${dcId}/pdf`);
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `report-dc-${dcId}.pdf`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('back-to-dcs')?.addEventListener('click', loadDashboard);
+document.getElementById('show-add-dc')?.addEventListener('click', () => {
+  document.getElementById('add-dc-form').classList.toggle('hidden');
+});
+document.getElementById('cancel-add-dc')?.addEventListener('click', () => {
+  document.getElementById('add-dc-form').classList.add('hidden');
+});
+document.getElementById('dc-create-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  try {
+    await api('/datacenters', {
+      method: 'POST',
+      body: {
+        name: document.getElementById('dc-name').value,
+        location: document.getElementById('dc-location').value || null,
+        contact_email: document.getElementById('dc-email').value || null,
+        description: document.getElementById('dc-desc').value || null,
+      },
+    });
+    document.getElementById('add-dc-form').classList.add('hidden');
+    document.getElementById('dc-create-form').reset();
+    loadDashboard();
+  } catch (err) { alert(err.message); }
+});
+document.querySelectorAll('.dc-tab').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.dc-tab').forEach(t => t.classList.remove('active'));
+    btn.classList.add('active');
+    renderDcTab(btn.dataset.dcTab);
+  });
+});
 
 async function loadDevices() {
   await populateDatacenterSelects();
@@ -183,6 +402,13 @@ function toggleProtocolFields() {
   document.getElementById('lbl-password').classList.toggle('hidden', !['ssh', 'netconf'].includes(protocol));
   document.getElementById('lbl-token').classList.toggle('hidden', protocol !== 'rest');
 }
+
+document.getElementById('dev-vendor').addEventListener('change', () => {
+  const v = document.getElementById('dev-vendor').value;
+  const typeEl = document.getElementById('dev-type');
+  if (v === 'fortinet') typeEl.value = 'firewall';
+  else if (v === 'cisco' || v === 'juniper') typeEl.value = 'switch';
+});
 
 document.getElementById('dev-protocol').addEventListener('change', toggleProtocolFields);
 
@@ -225,6 +451,7 @@ document.getElementById('device-create-form').addEventListener('submit', async (
     hostname: document.getElementById('dev-hostname').value,
     ip_address: document.getElementById('dev-ip').value,
     vendor: document.getElementById('dev-vendor').value,
+    device_type: document.getElementById('dev-type').value,
     credentials: [cred],
   };
 
@@ -736,7 +963,6 @@ document.getElementById('user-form').addEventListener('submit', async (e) => {
 document.getElementById('refresh-users').addEventListener('click', loadUsers);
 
 // --- Sensors (PRTG-style) ---
-const ASSET_TYPE_LABELS = { device: 'شبكة', server: 'سيرفر', storage: 'تخزين' };
 
 async function loadSensors() {
   const dcId = document.getElementById('sensor-dc-filter').value;
@@ -982,6 +1208,10 @@ document.getElementById('excel-apply-btn')?.addEventListener('click', async () =
     statusEl.textContent = err.message;
   }
 });
+
+window.openDatacenterDetail = openDatacenterDetail;
+window.ackAlert = ackAlert;
+window.resolveAlert = resolveAlert;
 
 if (token) {
   initApp().catch(() => logout());

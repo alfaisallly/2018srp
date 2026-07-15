@@ -8,6 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.security import require_permission
 from app.database import get_db
 from app.models import Device, DeviceCredential, Permission, ProtocolType, User, VendorType
+from app.services.datacenter_overview import infer_device_type
 from app.schemas import (
     DeviceCreate,
     DeviceResponse,
@@ -50,6 +51,7 @@ async def create_device(
         hostname=payload.hostname,
         ip_address=payload.ip_address,
         vendor=payload.vendor,
+        device_type=payload.device_type,
         model=payload.model,
         position_u=payload.position_u,
         height_u=payload.height_u,
@@ -119,12 +121,14 @@ async def import_discovered_devices(
             continue
 
         found = scan[0]
+        vendor = found.vendor if found.vendor != VendorType.GENERIC else VendorType.CISCO
         device = Device(
             datacenter_id=payload.datacenter_id,
             name=found.hostname,
             hostname=found.hostname,
             ip_address=found.ip_address,
-            vendor=found.vendor if found.vendor != VendorType.GENERIC else VendorType.CISCO,
+            vendor=vendor,
+            device_type=infer_device_type(vendor, found.hostname, found.model),
             model=found.model,
         )
         db.add(device)

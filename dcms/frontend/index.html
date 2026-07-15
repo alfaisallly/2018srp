@@ -46,9 +46,56 @@
     <!-- Dashboard -->
     <section id="dashboard-panel" class="panel hidden">
       <div class="stats-grid" id="stats-grid"></div>
-      <div class="card">
-        <h2>مراكز البيانات</h2>
-        <div id="datacenters-list"></div>
+
+      <div id="dc-list-view">
+        <div class="card">
+          <div class="toolbar">
+            <h2>مراكز البيانات</h2>
+            <div class="toolbar-actions">
+              <button id="show-add-dc" class="btn-secondary hidden">+ إضافة مركز بيانات</button>
+            </div>
+          </div>
+          <p class="muted dc-hint">اختر مركز بيانات لعرض الشبكة والخوادم والتخزين والمخططات والتنبيهات والتقارير الخاصة به</p>
+          <div id="add-dc-form" class="sub-form hidden">
+            <h3>إضافة مركز بيانات</h3>
+            <form id="dc-create-form">
+              <div class="form-grid">
+                <label>الاسم<input type="text" id="dc-name" required placeholder="DC-MOROOR-01"></label>
+                <label>الموقع<input type="text" id="dc-location" placeholder="بغداد"></label>
+                <label>البريد<input type="email" id="dc-email" placeholder="admin@example.com"></label>
+                <label>الوصف<textarea id="dc-desc" rows="2" placeholder="وصف المركز"></textarea></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit">حفظ</button>
+                <button type="button" id="cancel-add-dc" class="btn-secondary">إلغاء</button>
+              </div>
+            </form>
+          </div>
+          <div id="datacenters-grid" class="dc-grid"></div>
+        </div>
+      </div>
+
+      <div id="dc-detail-view" class="hidden">
+        <div class="card dc-detail-header">
+          <button id="back-to-dcs" class="btn-secondary">← جميع المراكز</button>
+          <div class="dc-detail-title-wrap">
+            <h2 id="dc-detail-name"></h2>
+            <p id="dc-detail-location" class="muted"></p>
+          </div>
+        </div>
+        <div id="dc-detail-stats" class="stats-grid dc-stats"></div>
+        <div class="dc-tabs" id="dc-tabs">
+          <button class="dc-tab active" data-dc-tab="overview">نظرة عامة</button>
+          <button class="dc-tab" data-dc-tab="switches">السويجات</button>
+          <button class="dc-tab" data-dc-tab="firewalls">جدران الحماية</button>
+          <button class="dc-tab" data-dc-tab="servers">الخوادم</button>
+          <button class="dc-tab" data-dc-tab="storage">التخزين</button>
+          <button class="dc-tab" data-dc-tab="topology">مخطط الربط</button>
+          <button class="dc-tab" data-dc-tab="sensors">الحساسات</button>
+          <button class="dc-tab" data-dc-tab="alerts">التنبيهات</button>
+          <button class="dc-tab" data-dc-tab="reports">التقارير</button>
+        </div>
+        <div id="dc-tab-content" class="card"></div>
       </div>
     </section>
 
@@ -79,6 +126,14 @@
                   <option value="cisco">Cisco</option>
                   <option value="juniper">Juniper</option>
                   <option value="fortinet">Fortinet</option>
+                </select>
+              </label>
+              <label>نوع الجهاز
+                <select id="dev-type" required>
+                  <option value="switch">سويج</option>
+                  <option value="firewall">جدار حماية</option>
+                  <option value="router">راوتر</option>
+                  <option value="other">أخرى</option>
                 </select>
               </label>
               <label>البروتوكول
