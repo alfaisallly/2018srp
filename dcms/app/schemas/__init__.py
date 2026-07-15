@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import AlertSeverity, AlertStatus, DeviceStatus, Permission, ProtocolType, VendorType
+from app.models import AlertSeverity, AlertStatus, DeviceStatus, Permission, ProtocolType, ServerOSType, ServerRole, StorageType, StorageVendor, VendorType
 
 
 class TokenResponse(BaseModel):
@@ -150,6 +150,10 @@ class DashboardStats(BaseModel):
     total_devices: int
     online_devices: int
     offline_devices: int
+    total_servers: int = 0
+    online_servers: int = 0
+    total_storage: int = 0
+    online_storage: int = 0
     open_alerts: int
     critical_alerts: int
 
@@ -197,3 +201,102 @@ class ImportDiscoveredResponse(BaseModel):
     imported: int
     skipped: int
     device_ids: list[int]
+
+
+class AssetCredentialCreate(BaseModel):
+    protocol: ProtocolType
+    username: str | None = None
+    password: str | None = None
+    community: str | None = None
+    api_token: str | None = None
+    port: int | None = None
+
+
+class ServerCreate(BaseModel):
+    datacenter_id: int
+    rack_id: int | None = None
+    name: str
+    hostname: str
+    ip_address: str
+    os_type: ServerOSType
+    server_role: ServerRole = ServerRole.OTHER
+    cpu_cores: int | None = None
+    ram_gb: int | None = None
+    position_u: int | None = None
+    notes: str | None = None
+    credentials: list[AssetCredentialCreate] = []
+
+
+class ServerResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    datacenter_id: int
+    rack_id: int | None
+    name: str
+    hostname: str
+    ip_address: str
+    os_type: ServerOSType
+    server_role: ServerRole
+    cpu_cores: int | None
+    ram_gb: int | None
+    status: DeviceStatus
+    position_u: int | None
+    notes: str | None
+    last_seen: datetime | None
+    created_at: datetime
+
+
+class StorageCreate(BaseModel):
+    datacenter_id: int
+    rack_id: int | None = None
+    name: str
+    hostname: str
+    ip_address: str
+    vendor: StorageVendor
+    storage_type: StorageType = StorageType.OTHER
+    total_capacity_tb: float | None = None
+    position_u: int | None = None
+    notes: str | None = None
+    credentials: list[AssetCredentialCreate] = []
+
+
+class StorageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    datacenter_id: int
+    rack_id: int | None
+    name: str
+    hostname: str
+    ip_address: str
+    vendor: StorageVendor
+    storage_type: StorageType
+    total_capacity_tb: float | None
+    used_capacity_tb: float | None
+    status: DeviceStatus
+    position_u: int | None
+    notes: str | None
+    last_seen: datetime | None
+    created_at: datetime
+
+
+class ServerPollResult(BaseModel):
+    success: bool
+    protocol: str | None = None
+    hostname: str | None = None
+    metrics: int | None = None
+    error: str | None = None
+
+
+class StoragePollResult(BaseModel):
+    success: bool
+    protocol: str | None = None
+    hostname: str | None = None
+    capacity_usage_pct: float | None = None
+    error: str | None = None
+
+
+class MonitoringGuide(BaseModel):
+    asset_type: str
+    protocols: list[dict]

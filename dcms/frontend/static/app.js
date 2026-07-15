@@ -66,6 +66,8 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     const panel = btn.dataset.panel;
     showPanel(panel);
     if (panel === 'devices') loadDevices();
+    if (panel === 'servers') loadServers();
+    if (panel === 'storage') loadStorage();
     if (panel === 'network-map') loadNetworkMap();
     if (panel === 'alerts') loadAlerts();
     if (panel === 'reports') loadReportSelector();
@@ -84,9 +86,12 @@ async function loadDashboard() {
   const stats = await api('/reports/dashboard');
   document.getElementById('stats-grid').innerHTML = `
     <div class="stat-card"><div class="value">${stats.datacenters}</div><div class="label">مراكز البيانات</div></div>
-    <div class="stat-card"><div class="value">${stats.total_devices}</div><div class="label">إجمالي الأجهزة</div></div>
-    <div class="stat-card"><div class="value status-online">${stats.online_devices}</div><div class="label">متصل</div></div>
-    <div class="stat-card"><div class="value status-offline">${stats.offline_devices}</div><div class="label">غير متصل</div></div>
+    <div class="stat-card"><div class="value">${stats.total_devices}</div><div class="label">أجهزة الشبكة</div></div>
+    <div class="stat-card"><div class="value">${stats.total_servers || 0}</div><div class="label">السيرفرات</div></div>
+    <div class="stat-card"><div class="value">${stats.total_storage || 0}</div><div class="label">التخزين</div></div>
+    <div class="stat-card"><div class="value status-online">${stats.online_devices}</div><div class="label">شبكة متصلة</div></div>
+    <div class="stat-card"><div class="value status-online">${stats.online_servers || 0}</div><div class="label">سيرفرات متصلة</div></div>
+    <div class="stat-card"><div class="value status-online">${stats.online_storage || 0}</div><div class="label">تخزين متصل</div></div>
     <div class="stat-card"><div class="value">${stats.open_alerts}</div><div class="label">تنبيهات مفتوحة</div></div>
     <div class="stat-card"><div class="value severity-critical">${stats.critical_alerts}</div><div class="label">حرجة</div></div>
   `;
@@ -114,7 +119,7 @@ async function loadDevices() {
 
 async function populateDatacenterSelects() {
   const dcs = await api('/datacenters');
-  ['dev-dc', 'disc-dc'].forEach(id => {
+  ['dev-dc', 'disc-dc', 'srv-dc', 'sto-dc'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.innerHTML = dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   });
@@ -371,6 +376,186 @@ document.getElementById('download-report').addEventListener('click', async () =>
   a.click();
   URL.revokeObjectURL(url);
 });
+
+// ─── Servers ───
+function toggleServerProtocolFields() {
+  const p = document.getElementById('srv-protocol').value;
+  document.getElementById('srv-lbl-community').classList.toggle('hidden', p !== 'snmp');
+  document.getElementById('srv-lbl-token').classList.toggle('hidden', p !== 'rest');
+  document.getElementById('srv-lbl-user').classList.toggle('hidden', p === 'snmp');
+  document.getElementById('srv-lbl-pass').classList.toggle('hidden', p === 'snmp');
+}
+
+document.getElementById('srv-protocol').addEventListener('change', toggleServerProtocolFields);
+document.getElementById('show-add-server').addEventListener('click', async () => {
+  await populateDatacenterSelects();
+  document.getElementById('add-server-form').classList.toggle('hidden');
+  toggleServerProtocolFields();
+});
+document.getElementById('cancel-add-server').addEventListener('click', () => document.getElementById('add-server-form').classList.add('hidden'));
+
+document.getElementById('show-server-guide').addEventListener('click', async () => {
+  const guide = await api('/servers/monitoring-guide');
+  const el = document.getElementById('server-guide');
+  el.classList.toggle('hidden');
+  if (!el.classList.contains('hidden')) {
+    el.innerHTML = `<h4>دليل الدخول والفحص — السيرفرات</h4><ul>${guide.protocols.map(p =>
+      `<li><strong>${p.protocol.toUpperCase()}</strong> — منفذ <code>${p.port}</code>: ${p.description}<br>الحقول: ${p.fields.join(', ')}</li>`
+    ).join('')}</ul>`;
+  }
+});
+
+async function loadServers() {
+  await populateDatacenterSelects();
+  const servers = await api('/servers');
+  document.querySelector('#servers-table tbody').innerHTML = servers.map(s => `
+    <tr>
+      <td>${s.name}</td><td>${s.ip_address}</td><td>${s.os_type}</td><td>${s.server_role}</td>
+      <td class="status-${s.status}">${s.status}</td>
+      <td>${s.last_seen ? new Date(s.last_seen).toLocaleString('ar') : '—'}</td>
+      <td><button class="btn-sm" onclick="pollServer(${s.id})">فحص</button>
+          <button class="btn-sm btn-secondary" onclick="showServerCreds(${s.id})">اعتماد</button></td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">لا توجد سيرفرات</td></tr>';
+}
+
+async function pollServer(id) {
+  try {
+    const r = await api(`/servers/${id}/poll`, { method: 'POST' });
+    alert(r.success ? `متصل عبر ${r.protocol} — ${r.metrics || 0} مقياس` : `فشل: ${r.error}`);
+    loadServers();
+  } catch (e) { alert(e.message); }
+}
+
+async function showServerCreds(id) {
+  const creds = await api(`/servers/${id}/credentials`);
+  alert(creds.map(c => `${c.protocol} | user:${c.username || '-'} | port:${c.port || 'default'} | pwd:${c.has_password?'✓':'✗'}`).join('\n') || 'لا اعتماد');
+}
+
+document.getElementById('server-create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const p = document.getElementById('srv-protocol').value;
+  const port = document.getElementById('srv-port').value;
+  const cred = { protocol: p, port: port ? parseInt(port) : null };
+  if (p === 'snmp') cred.community = document.getElementById('srv-community').value;
+  else {
+    cred.username = document.getElementById('srv-username').value;
+    cred.password = document.getElementById('srv-password').value;
+    if (p === 'rest') cred.api_token = document.getElementById('srv-token').value;
+  }
+  const body = {
+    datacenter_id: parseInt(document.getElementById('srv-dc').value),
+    name: document.getElementById('srv-name').value,
+    hostname: document.getElementById('srv-hostname').value,
+    ip_address: document.getElementById('srv-ip').value,
+    os_type: document.getElementById('srv-os').value,
+    server_role: document.getElementById('srv-role').value,
+    credentials: [cred],
+  };
+  try {
+    const s = await api('/servers', { method: 'POST', body });
+    document.getElementById('add-server-form').classList.add('hidden');
+    loadServers();
+    if (confirm('تمت الإضافة. فحص الآن؟')) pollServer(s.id);
+  } catch (err) { alert(err.message); }
+});
+
+document.getElementById('poll-all-servers').addEventListener('click', async () => {
+  const r = await api('/servers/poll-all', { method: 'POST' });
+  alert(`سيرفرات: ${r.online}/${r.total} متصل`);
+  loadServers();
+});
+document.getElementById('refresh-servers').addEventListener('click', loadServers);
+
+// ─── Storage ───
+function toggleStorageProtocolFields() {
+  const p = document.getElementById('sto-protocol').value;
+  document.getElementById('sto-lbl-community').classList.toggle('hidden', p !== 'snmp');
+  document.getElementById('sto-lbl-token').classList.toggle('hidden', p !== 'rest');
+  document.getElementById('sto-lbl-user').classList.toggle('hidden', p !== 'ssh');
+  document.getElementById('sto-lbl-pass').classList.toggle('hidden', p !== 'ssh');
+}
+
+document.getElementById('sto-protocol').addEventListener('change', toggleStorageProtocolFields);
+document.getElementById('show-add-storage').addEventListener('click', async () => {
+  await populateDatacenterSelects();
+  document.getElementById('add-storage-form').classList.toggle('hidden');
+  toggleStorageProtocolFields();
+});
+document.getElementById('cancel-add-storage').addEventListener('click', () => document.getElementById('add-storage-form').classList.add('hidden'));
+
+document.getElementById('show-storage-guide').addEventListener('click', async () => {
+  const guide = await api('/storage/monitoring-guide');
+  const el = document.getElementById('storage-guide');
+  el.classList.toggle('hidden');
+  if (!el.classList.contains('hidden')) {
+    el.innerHTML = `<h4>دليل الدخول والفحص — التخزين</h4><ul>${guide.protocols.map(p =>
+      `<li><strong>${p.protocol.toUpperCase()}</strong> — منفذ <code>${p.port}</code>: ${p.description}<br>الحقول: ${p.fields.join(', ')}</li>`
+    ).join('')}</ul>`;
+  }
+});
+
+async function loadStorage() {
+  await populateDatacenterSelects();
+  const items = await api('/storage');
+  document.querySelector('#storage-table tbody').innerHTML = items.map(s => {
+    const usage = s.total_capacity_tb && s.used_capacity_tb
+      ? `${((s.used_capacity_tb / s.total_capacity_tb) * 100).toFixed(1)}%` : '—';
+    const cap = s.total_capacity_tb ? `${s.used_capacity_tb || 0}/${s.total_capacity_tb} TB` : '—';
+    return `<tr>
+      <td>${s.name}</td><td>${s.ip_address}</td><td>${s.vendor}</td><td>${cap}</td><td>${usage}</td>
+      <td class="status-${s.status}">${s.status}</td>
+      <td><button class="btn-sm" onclick="pollStorage(${s.id})">فحص</button>
+          <button class="btn-sm btn-secondary" onclick="showStorageCreds(${s.id})">اعتماد</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">لا أنظمة تخزين</td></tr>';
+}
+
+async function pollStorage(id) {
+  try {
+    const r = await api(`/storage/${id}/poll`, { method: 'POST' });
+    alert(r.success ? `متصل — استخدام ${r.capacity_usage_pct || '?'}%` : `فشل: ${r.error}`);
+    loadStorage();
+  } catch (e) { alert(e.message); }
+}
+
+async function showStorageCreds(id) {
+  const creds = await api(`/storage/${id}/credentials`);
+  alert(creds.map(c => `${c.protocol} | port:${c.port || 'default'} | community:${c.has_community?'✓':'✗'} | token:${c.has_token?'✓':'✗'}`).join('\n') || 'لا اعتماد');
+}
+
+document.getElementById('storage-create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const p = document.getElementById('sto-protocol').value;
+  const port = document.getElementById('sto-port').value;
+  const cred = { protocol: p, port: port ? parseInt(port) : null };
+  if (p === 'snmp') cred.community = document.getElementById('sto-community').value;
+  else if (p === 'rest') cred.api_token = document.getElementById('sto-token').value;
+  else { cred.username = document.getElementById('sto-username').value; cred.password = document.getElementById('sto-password').value; }
+  const cap = document.getElementById('sto-capacity').value;
+  const body = {
+    datacenter_id: parseInt(document.getElementById('sto-dc').value),
+    name: document.getElementById('sto-name').value,
+    hostname: document.getElementById('sto-hostname').value,
+    ip_address: document.getElementById('sto-ip').value,
+    vendor: document.getElementById('sto-vendor').value,
+    storage_type: document.getElementById('sto-type').value,
+    total_capacity_tb: cap ? parseFloat(cap) : null,
+    credentials: [cred],
+  };
+  try {
+    const s = await api('/storage', { method: 'POST', body });
+    document.getElementById('add-storage-form').classList.add('hidden');
+    loadStorage();
+    if (confirm('تمت الإضافة. فحص الآن؟')) pollStorage(s.id);
+  } catch (err) { alert(err.message); }
+});
+
+document.getElementById('poll-all-storage').addEventListener('click', async () => {
+  const r = await api('/storage/poll-all', { method: 'POST' });
+  alert(`تخزين: ${r.online}/${r.total} متصل`);
+  loadStorage();
+});
+document.getElementById('refresh-storage').addEventListener('click', loadStorage);
 
 if (token) {
   initApp().catch(() => logout());

@@ -13,6 +13,14 @@ from app.models import (
     DeviceCredential,
     NetworkMap,
     ProtocolType,
+    Server,
+    ServerCredential,
+    ServerOSType,
+    ServerRole,
+    StorageCredential,
+    StorageSystem,
+    StorageType,
+    StorageVendor,
     User,
     VendorType,
 )
@@ -91,6 +99,34 @@ async def init_db():
                 )
             )
             print("Created sample data center with 3 devices")
+
+            srv = Server(
+                datacenter_id=dc.id,
+                name="APP-SRV-01",
+                hostname="app-srv-01",
+                ip_address="10.0.2.10",
+                os_type=ServerOSType.LINUX,
+                server_role=ServerRole.APPLICATION,
+                cpu_cores=8,
+                ram_gb=32,
+            )
+            session.add(srv)
+            await session.flush()
+            session.add(ServerCredential(server_id=srv.id, protocol=ProtocolType.SSH, username="root", password="pass", port=22))
+
+            sto = StorageSystem(
+                datacenter_id=dc.id,
+                name="NAS-Primary",
+                hostname="nas-primary",
+                ip_address="10.0.2.20",
+                vendor=StorageVendor.NETAPP,
+                storage_type=StorageType.NAS,
+                total_capacity_tb=50.0,
+            )
+            session.add(sto)
+            await session.flush()
+            session.add(StorageCredential(storage_id=sto.id, protocol=ProtocolType.SNMP, community="public", port=161))
+            print("Created sample server and storage")
 
         await session.commit()
     print("Database initialization complete.")

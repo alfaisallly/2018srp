@@ -15,7 +15,9 @@
 
   <nav>
     <button class="nav-btn active" data-panel="dashboard">لوحة التحكم</button>
-    <button class="nav-btn" data-panel="devices">الأجهزة</button>
+    <button class="nav-btn" data-panel="devices">الشبكة</button>
+    <button class="nav-btn" data-panel="servers">السيرفرات</button>
+    <button class="nav-btn" data-panel="storage">التخزين</button>
     <button class="nav-btn" data-panel="network-map">خريطة الشبكة</button>
     <button class="nav-btn" data-panel="alerts">التنبيهات</button>
     <button class="nav-btn" data-panel="reports">التقارير</button>
@@ -122,6 +124,138 @@
               <th>الاسم</th><th>IP</th><th>المورّد</th><th>الحالة</th><th>آخر ظهور</th><th>إجراء</th>
             </tr>
           </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Servers -->
+    <section id="servers-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>السيرفرات</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-server" class="btn-secondary">+ إضافة سيرفر</button>
+            <button id="show-server-guide" class="btn-secondary">📋 دليل الدخول والفحص</button>
+            <button id="poll-all-servers">فحص الكل</button>
+            <button id="refresh-servers">تحديث</button>
+          </div>
+        </div>
+        <div id="server-guide" class="guide-box hidden"></div>
+        <div id="add-server-form" class="sub-form hidden">
+          <h3>إضافة سيرفر</h3>
+          <form id="server-create-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="srv-dc" required></select></label>
+              <label>الاسم<input type="text" id="srv-name" required></label>
+              <label>Hostname<input type="text" id="srv-hostname" required></label>
+              <label>IP<input type="text" id="srv-ip" required></label>
+              <label>نظام التشغيل
+                <select id="srv-os" required>
+                  <option value="linux">Linux</option>
+                  <option value="windows">Windows</option>
+                  <option value="vmware">VMware</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>الدور
+                <select id="srv-role">
+                  <option value="application">Application</option>
+                  <option value="database">Database</option>
+                  <option value="web">Web</option>
+                  <option value="hypervisor">Hypervisor</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>البروتوكول
+                <select id="srv-protocol" required>
+                  <option value="ssh">SSH (Linux)</option>
+                  <option value="winrm">WinRM (Windows)</option>
+                  <option value="snmp">SNMP</option>
+                  <option value="rest">REST (VMware)</option>
+                  <option value="ipmi">IPMI (BMC/iDRAC)</option>
+                </select>
+              </label>
+              <label id="srv-lbl-user">Username<input type="text" id="srv-username"></label>
+              <label id="srv-lbl-pass">Password<input type="password" id="srv-password"></label>
+              <label id="srv-lbl-community" class="hidden">Community<input type="text" id="srv-community" value="public"></label>
+              <label id="srv-lbl-token" class="hidden">API Token<input type="text" id="srv-token"></label>
+              <label>Port<input type="number" id="srv-port" placeholder="تلقائي"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ</button>
+              <button type="button" id="cancel-add-server" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="servers-table">
+          <thead><tr><th>الاسم</th><th>IP</th><th>OS</th><th>الدور</th><th>الحالة</th><th>آخر ظهور</th><th>إجراء</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Storage -->
+    <section id="storage-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>أنظمة التخزين</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-storage" class="btn-secondary">+ إضافة Storage</button>
+            <button id="show-storage-guide" class="btn-secondary">📋 دليل الدخول والفحص</button>
+            <button id="poll-all-storage">فحص الكل</button>
+            <button id="refresh-storage">تحديث</button>
+          </div>
+        </div>
+        <div id="storage-guide" class="guide-box hidden"></div>
+        <div id="add-storage-form" class="sub-form hidden">
+          <h3>إضافة نظام تخزين</h3>
+          <form id="storage-create-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="sto-dc" required></select></label>
+              <label>الاسم<input type="text" id="sto-name" required></label>
+              <label>Hostname<input type="text" id="sto-hostname" required></label>
+              <label>IP<input type="text" id="sto-ip" required></label>
+              <label>المورّد
+                <select id="sto-vendor" required>
+                  <option value="netapp">NetApp</option>
+                  <option value="dell_emc">Dell EMC</option>
+                  <option value="hpe">HPE</option>
+                  <option value="qnap">QNAP</option>
+                  <option value="synology">Synology</option>
+                  <option value="generic">Generic</option>
+                </select>
+              </label>
+              <label>النوع
+                <select id="sto-type">
+                  <option value="san">SAN</option>
+                  <option value="nas">NAS</option>
+                  <option value="object">Object</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>البروتوكول
+                <select id="sto-protocol" required>
+                  <option value="snmp">SNMP</option>
+                  <option value="rest">REST API</option>
+                  <option value="ssh">SSH</option>
+                </select>
+              </label>
+              <label id="sto-lbl-community">Community<input type="text" id="sto-community" value="public"></label>
+              <label id="sto-lbl-user" class="hidden">Username<input type="text" id="sto-username"></label>
+              <label id="sto-lbl-pass" class="hidden">Password<input type="password" id="sto-password"></label>
+              <label id="sto-lbl-token" class="hidden">API Token<input type="text" id="sto-token"></label>
+              <label>Port<input type="number" id="sto-port" placeholder="تلقائي"></label>
+              <label>السعة (TB)<input type="number" step="0.1" id="sto-capacity"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ</button>
+              <button type="button" id="cancel-add-storage" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="storage-table">
+          <thead><tr><th>الاسم</th><th>IP</th><th>المورّد</th><th>السعة</th><th>الاستخدام</th><th>الحالة</th><th>إجراء</th></tr></thead>
           <tbody></tbody>
         </table>
       </div>

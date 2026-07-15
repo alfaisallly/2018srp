@@ -5,7 +5,7 @@ from jinja2 import Template
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Alert, AlertSeverity, AlertStatus, DataCenter, Device, DeviceMetric, DeviceStatus
+from app.models import Alert, AlertSeverity, AlertStatus, DataCenter, Device, DeviceMetric, DeviceStatus, Server, StorageSystem
 
 
 REPORT_TEMPLATE = """
@@ -121,12 +121,24 @@ async def get_dashboard_stats(db: AsyncSession) -> dict:
         )
     ) or 0
     datacenters = await db.scalar(select(func.count(DataCenter.id))) or 0
+    total_servers = await db.scalar(select(func.count(Server.id))) or 0
+    online_servers = await db.scalar(
+        select(func.count(Server.id)).where(Server.status == DeviceStatus.ONLINE)
+    ) or 0
+    total_storage = await db.scalar(select(func.count(StorageSystem.id))) or 0
+    online_storage = await db.scalar(
+        select(func.count(StorageSystem.id)).where(StorageSystem.status == DeviceStatus.ONLINE)
+    ) or 0
 
     return {
         "datacenters": datacenters,
         "total_devices": total_devices,
         "online_devices": online,
         "offline_devices": total_devices - online,
+        "total_servers": total_servers,
+        "online_servers": online_servers,
+        "total_storage": total_storage,
+        "online_storage": online_storage,
         "open_alerts": open_alerts,
         "critical_alerts": critical_alerts,
     }
