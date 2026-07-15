@@ -1,0 +1,34 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dcms-postgres
+    environment:
+      POSTGRES_USER: dcms
+      POSTGRES_PASSWORD: dcms_password
+      POSTGRES_DB: dcms
+    ports:
+      - "5432:5432"
+    volumes:
+      - dcms_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dcms"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: dcms-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - dcms_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dcms_pg_data:
+  dcms_redis_data:
