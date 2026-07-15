@@ -159,3 +159,41 @@ class PollResult(BaseModel):
     protocol: str | None = None
     hostname: str | None = None
     error: str | None = None
+
+
+class DiscoverRequest(BaseModel):
+    datacenter_id: int | None = None
+    cidr: str | None = Field(default=None, examples=["192.168.10.0/24"])
+    start_ip: str | None = None
+    end_ip: str | None = None
+    community: str = "public"
+    port: int = 161
+    max_hosts: int = Field(default=254, le=1024)
+
+
+class DiscoveredDeviceResponse(BaseModel):
+    ip_address: str
+    hostname: str
+    sys_descr: str
+    vendor: VendorType
+    model: str | None = None
+
+
+class DiscoverResponse(BaseModel):
+    scanned: int
+    found: int
+    devices: list[DiscoveredDeviceResponse]
+
+
+class ImportDiscoveredRequest(BaseModel):
+    datacenter_id: int
+    community: str = "public"
+    port: int = 161
+    ips: list[str]
+    poll_after_import: bool = True
+
+
+class ImportDiscoveredResponse(BaseModel):
+    imported: int
+    skipped: int
+    device_ids: list[int]

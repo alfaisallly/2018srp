@@ -76,6 +76,9 @@ POST   /api/v1/auth/login
 GET    /api/v1/auth/me
 GET    /api/v1/datacenters
 POST   /api/v1/devices
+POST   /api/v1/devices/discover          # مسح SNMP لنطاق IP
+POST   /api/v1/devices/import-discovered # استيراد الأجهزة المكتشفة
+POST   /api/v1/devices/poll-all          # فحص جميع الأجهزة
 POST   /api/v1/devices/{id}/poll
 GET    /api/v1/network-maps
 GET    /api/v1/alerts

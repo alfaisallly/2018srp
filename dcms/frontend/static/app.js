@@ -97,6 +97,7 @@ async function loadDashboard() {
 }
 
 async function loadDevices() {
+  await populateDatacenterSelects();
   const devices = await api('/devices');
   const tbody = document.querySelector('#devices-table tbody');
   tbody.innerHTML = devices.map(d => `
@@ -110,6 +111,151 @@ async function loadDevices() {
     </tr>
   `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">لا توجد أجهزة</td></tr>';
 }
+
+async function populateDatacenterSelects() {
+  const dcs = await api('/datacenters');
+  ['dev-dc', 'disc-dc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  });
+}
+
+function toggleProtocolFields() {
+  const protocol = document.getElementById('dev-protocol').value;
+  document.getElementById('lbl-community').classList.toggle('hidden', protocol !== 'snmp');
+  document.getElementById('lbl-username').classList.toggle('hidden', !['ssh', 'netconf'].includes(protocol));
+  document.getElementById('lbl-password').classList.toggle('hidden', !['ssh', 'netconf'].includes(protocol));
+  document.getElementById('lbl-token').classList.toggle('hidden', protocol !== 'rest');
+}
+
+document.getElementById('dev-protocol').addEventListener('change', toggleProtocolFields);
+
+document.getElementById('show-add-device').addEventListener('click', async () => {
+  await populateDatacenterSelects();
+  document.getElementById('discover-form').classList.add('hidden');
+  document.getElementById('add-device-form').classList.toggle('hidden');
+  toggleProtocolFields();
+});
+
+document.getElementById('cancel-add-device').addEventListener('click', () => {
+  document.getElementById('add-device-form').classList.add('hidden');
+});
+
+document.getElementById('show-discover').addEventListener('click', async () => {
+  await populateDatacenterSelects();
+  document.getElementById('add-device-form').classList.add('hidden');
+  document.getElementById('discover-form').classList.toggle('hidden');
+});
+
+document.getElementById('cancel-discover').addEventListener('click', () => {
+  document.getElementById('discover-form').classList.add('hidden');
+});
+
+document.getElementById('device-create-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const protocol = document.getElementById('dev-protocol').value;
+  const portVal = document.getElementById('dev-port').value;
+  const cred = { protocol, port: portVal ? parseInt(portVal) : null };
+  if (protocol === 'snmp') cred.community = document.getElementById('dev-community').value;
+  if (['ssh', 'netconf'].includes(protocol)) {
+    cred.username = document.getElementById('dev-username').value;
+    cred.password = document.getElementById('dev-password').value;
+  }
+  if (protocol === 'rest') cred.api_token = document.getElementById('dev-token').value;
+
+  const body = {
+    datacenter_id: parseInt(document.getElementById('dev-dc').value),
+    name: document.getElementById('dev-name').value,
+    hostname: document.getElementById('dev-hostname').value,
+    ip_address: document.getElementById('dev-ip').value,
+    vendor: document.getElementById('dev-vendor').value,
+    credentials: [cred],
+  };
+
+  try {
+    const device = await api('/devices', { method: 'POST', body });
+    document.getElementById('add-device-msg').textContent = '';
+    document.getElementById('add-device-form').classList.add('hidden');
+    await loadDevices();
+    const poll = confirm('تمت الإضافة. هل تريد فحص الجهاز الآن؟');
+    if (poll) await pollDevice(device.id);
+  } catch (err) {
+    document.getElementById('add-device-msg').textContent = err.message;
+  }
+});
+
+document.getElementById('network-discover-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const statusEl = document.getElementById('discover-status');
+  const resultsEl = document.getElementById('discover-results');
+  statusEl.textContent = 'جاري المسح... قد يستغرق دقائق';
+  resultsEl.innerHTML = '';
+
+  const body = {
+    datacenter_id: parseInt(document.getElementById('disc-dc').value),
+    community: document.getElementById('disc-community').value,
+    port: parseInt(document.getElementById('disc-port').value) || 161,
+  };
+  const cidr = document.getElementById('disc-cidr').value.trim();
+  const start = document.getElementById('disc-start').value.trim();
+  const end = document.getElementById('disc-end').value.trim();
+  if (cidr) body.cidr = cidr;
+  else if (start && end) { body.start_ip = start; body.end_ip = end; }
+  else { statusEl.textContent = 'أدخل CIDR أو نطاق IP'; return; }
+
+  try {
+    const result = await api('/devices/discover', { method: 'POST', body });
+    statusEl.textContent = `تم مسح ${result.scanned} IP — وُجد ${result.found} جهاز`;
+    if (result.devices.length === 0) {
+      resultsEl.innerHTML = '<p class="muted">لم يُكتشف أي جهاز. تحقق من Community والاتصال.</p>';
+      return;
+    }
+    resultsEl.innerHTML = `
+      <table class="discover-table">
+        <thead><tr><th></th><th>IP</th><th>Hostname</th><th>المورّد</th><th>الوصف</th></tr></thead>
+        <tbody>${result.devices.map(d => `
+          <tr>
+            <td><input type="checkbox" class="disc-check" data-ip="${d.ip_address}" checked></td>
+            <td>${d.ip_address}</td>
+            <td>${d.hostname}</td>
+            <td>${d.vendor}</td>
+            <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${d.sys_descr}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="import-bar">
+        <button id="import-selected">استيراد المحدد (${result.found})</button>
+      </div>`;
+    document.getElementById('import-selected').addEventListener('click', importSelectedDevices);
+  } catch (err) {
+    statusEl.textContent = `خطأ: ${err.message}`;
+  }
+});
+
+async function importSelectedDevices() {
+  const ips = [...document.querySelectorAll('.disc-check:checked')].map(c => c.dataset.ip);
+  if (!ips.length) return alert('حدّد جهازاً واحداً على الأقل');
+  const dcId = parseInt(document.getElementById('disc-dc').value);
+  const community = document.getElementById('disc-community').value;
+  const port = parseInt(document.getElementById('disc-port').value) || 161;
+  try {
+    const result = await api('/devices/import-discovered', {
+      method: 'POST',
+      body: { datacenter_id: dcId, community, port, ips, poll_after_import: true },
+    });
+    alert(`تم استيراد ${result.imported} جهاز (${result.skipped} تخطّى)`);
+    document.getElementById('discover-form').classList.add('hidden');
+    loadDevices();
+  } catch (e) { alert(e.message); }
+}
+
+document.getElementById('poll-all-devices').addEventListener('click', async () => {
+  try {
+    const result = await api('/devices/poll-all', { method: 'POST' });
+    alert(`فحص ${result.total}: ${result.online} متصل، ${result.offline} غير متصل`);
+    loadDevices();
+  } catch (e) { alert(e.message); }
+});
 
 async function pollDevice(id) {
   try {

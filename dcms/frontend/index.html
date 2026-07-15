@@ -49,8 +49,73 @@
       <div class="card">
         <div class="toolbar">
           <h2>الأجهزة</h2>
-          <button id="refresh-devices">تحديث</button>
+          <div class="toolbar-actions">
+            <button id="show-add-device" class="btn-secondary">+ إضافة جهاز</button>
+            <button id="show-discover" class="btn-secondary">🔍 مسح الشبكة</button>
+            <button id="poll-all-devices">فحص الكل</button>
+            <button id="refresh-devices">تحديث</button>
+          </div>
         </div>
+
+        <!-- Add Device Form -->
+        <div id="add-device-form" class="sub-form hidden">
+          <h3>إضافة جهاز جديد</h3>
+          <form id="device-create-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="dev-dc" required></select></label>
+              <label>الاسم<input type="text" id="dev-name" required placeholder="Core-SW-01"></label>
+              <label>Hostname<input type="text" id="dev-hostname" required placeholder="core-sw-01"></label>
+              <label>IP Address<input type="text" id="dev-ip" required placeholder="192.168.10.1"></label>
+              <label>المورّد
+                <select id="dev-vendor" required>
+                  <option value="cisco">Cisco</option>
+                  <option value="juniper">Juniper</option>
+                  <option value="fortinet">Fortinet</option>
+                </select>
+              </label>
+              <label>البروتوكول
+                <select id="dev-protocol" required>
+                  <option value="snmp">SNMP</option>
+                  <option value="ssh">SSH</option>
+                  <option value="netconf">NETCONF</option>
+                  <option value="rest">REST API</option>
+                </select>
+              </label>
+              <label id="lbl-community">Community (SNMP)<input type="text" id="dev-community" value="public"></label>
+              <label id="lbl-username" class="hidden">Username<input type="text" id="dev-username"></label>
+              <label id="lbl-password" class="hidden">Password<input type="password" id="dev-password"></label>
+              <label id="lbl-token" class="hidden">API Token<input type="text" id="dev-token"></label>
+              <label>Port<input type="number" id="dev-port" placeholder="تلقائي"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ وإضافة</button>
+              <button type="button" id="cancel-add-device" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+          <p id="add-device-msg" class="error"></p>
+        </div>
+
+        <!-- Network Discovery -->
+        <div id="discover-form" class="sub-form hidden">
+          <h3>مسح الشبكة (SNMP)</h3>
+          <form id="network-discover-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="disc-dc" required></select></label>
+              <label>نطاق CIDR<input type="text" id="disc-cidr" placeholder="192.168.10.0/24"></label>
+              <label>أو: IP البداية<input type="text" id="disc-start" placeholder="192.168.10.1"></label>
+              <label>IP النهاية<input type="text" id="disc-end" placeholder="192.168.10.50"></label>
+              <label>SNMP Community<input type="text" id="disc-community" value="public" required></label>
+              <label>Port<input type="number" id="disc-port" value="161"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">بدء المسح</button>
+              <button type="button" id="cancel-discover" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+          <p id="discover-status" class="muted"></p>
+          <div id="discover-results"></div>
+        </div>
+
         <table id="devices-table">
           <thead>
             <tr>
