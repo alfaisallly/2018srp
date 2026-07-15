@@ -218,6 +218,7 @@
               <label>IP<input type="text" id="sto-ip" required></label>
               <label>المورّد
                 <select id="sto-vendor" required>
+                  <option value="pure_storage">Pure Storage</option>
                   <option value="netapp">NetApp</option>
                   <option value="dell_emc">Dell EMC</option>
                   <option value="hpe">HPE</option>
@@ -226,6 +227,7 @@
                   <option value="generic">Generic</option>
                 </select>
               </label>
+              <label>الطراز<input type="text" id="sto-model" placeholder="FlashArray //R40"></label>
               <label>النوع
                 <select id="sto-type">
                   <option value="san">SAN</option>
@@ -236,8 +238,8 @@
               </label>
               <label>البروتوكول
                 <select id="sto-protocol" required>
+                  <option value="rest">REST API (Pure Storage)</option>
                   <option value="snmp">SNMP</option>
-                  <option value="rest">REST API</option>
                   <option value="ssh">SSH</option>
                 </select>
               </label>

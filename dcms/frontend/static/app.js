@@ -502,7 +502,7 @@ async function loadStorage() {
       ? `${((s.used_capacity_tb / s.total_capacity_tb) * 100).toFixed(1)}%` : '—';
     const cap = s.total_capacity_tb ? `${s.used_capacity_tb || 0}/${s.total_capacity_tb} TB` : '—';
     return `<tr>
-      <td>${s.name}</td><td>${s.ip_address}</td><td>${s.vendor}</td><td>${cap}</td><td>${usage}</td>
+      <td>${s.name}</td><td>${s.ip_address}</td><td>${s.vendor}${s.model ? ' / ' + s.model : ''}</td><td>${cap}</td><td>${usage}</td>
       <td class="status-${s.status}">${s.status}</td>
       <td><button class="btn-sm" onclick="pollStorage(${s.id})">فحص</button>
           <button class="btn-sm btn-secondary" onclick="showStorageCreds(${s.id})">اعتماد</button></td>
@@ -538,6 +538,7 @@ document.getElementById('storage-create-form').addEventListener('submit', async 
     hostname: document.getElementById('sto-hostname').value,
     ip_address: document.getElementById('sto-ip').value,
     vendor: document.getElementById('sto-vendor').value,
+    model: document.getElementById('sto-model').value || null,
     storage_type: document.getElementById('sto-type').value,
     total_capacity_tb: cap ? parseFloat(cap) : null,
     credentials: [cred],

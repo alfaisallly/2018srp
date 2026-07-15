@@ -46,6 +46,7 @@ async def create_storage(
         hostname=payload.hostname,
         ip_address=payload.ip_address,
         vendor=payload.vendor,
+        model=payload.model,
         storage_type=payload.storage_type,
         total_capacity_tb=payload.total_capacity_tb,
         position_u=payload.position_u,

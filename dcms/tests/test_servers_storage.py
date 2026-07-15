@@ -9,4 +9,5 @@ def test_server_permissions():
 
 def test_server_os_types():
     assert ServerOSType.LINUX.value == "linux"
+    assert StorageVendor.PURE_STORAGE.value == "pure_storage"
     assert StorageVendor.NETAPP.value == "netapp"

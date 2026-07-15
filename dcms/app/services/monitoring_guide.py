@@ -43,6 +43,20 @@ MONITORING_GUIDES = {
         "asset_type": "storage",
         "protocols": [
             {
+                "protocol": "rest",
+                "port": 443,
+                "vendors": ["pure_storage"],
+                "fields": ["api_token"],
+                "description": "Pure Storage FlashArray REST API (api-token header, /api/1.17/array?space=true)",
+            },
+            {
+                "protocol": "snmp",
+                "port": 161,
+                "vendors": ["pure_storage"],
+                "fields": ["community"],
+                "description": "Pure Storage SNMP (enterprise OID 40482) — capacity monitoring",
+            },
+            {
                 "protocol": "snmp",
                 "port": 161,
                 "vendors": ["netapp", "dell_emc", "hpe", "generic"],

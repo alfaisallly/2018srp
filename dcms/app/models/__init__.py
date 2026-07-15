@@ -19,6 +19,10 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+def _enum_values(enum_cls: type) -> list[str]:
+    return [member.value for member in enum_cls]
+
+
 class VendorType(str, enum.Enum):
     CISCO = "cisco"
     JUNIPER = "juniper"
@@ -58,6 +62,7 @@ class ServerRole(str, enum.Enum):
 
 
 class StorageVendor(str, enum.Enum):
+    PURE_STORAGE = "pure_storage"
     NETAPP = "netapp"
     DELL_EMC = "dell_emc"
     HPE = "hpe"
@@ -285,8 +290,9 @@ class StorageSystem(Base):
     name: Mapped[str] = mapped_column(String(128))
     hostname: Mapped[str] = mapped_column(String(255))
     ip_address: Mapped[str] = mapped_column(String(45), index=True)
-    vendor: Mapped[StorageVendor] = mapped_column(Enum(StorageVendor))
-    storage_type: Mapped[StorageType] = mapped_column(Enum(StorageType), default=StorageType.OTHER)
+    vendor: Mapped[StorageVendor] = mapped_column(Enum(StorageVendor, values_callable=_enum_values))
+    model: Mapped[str | None] = mapped_column(String(128))
+    storage_type: Mapped[StorageType] = mapped_column(Enum(StorageType, values_callable=_enum_values), default=StorageType.OTHER)
     total_capacity_tb: Mapped[float | None] = mapped_column(Float)
     used_capacity_tb: Mapped[float | None] = mapped_column(Float)
     status: Mapped[DeviceStatus] = mapped_column(Enum(DeviceStatus), default=DeviceStatus.UNKNOWN)

@@ -20,6 +20,10 @@ from app.services.ssh_connector import run_ssh_command
 
 
 VENDOR_SNMP_OIDS: dict[StorageVendor, dict[str, str]] = {
+    StorageVendor.PURE_STORAGE: {
+        "capacity_bytes": "1.3.6.1.4.1.40482.4.1.1.1.1.1",
+        "used_bytes": "1.3.6.1.4.1.40482.4.1.1.1.1.2",
+    },
     StorageVendor.NETAPP: {
         "total_kb": "1.3.6.1.4.1.789.1.5.4.1.1.0",
         "used_kb": "1.3.6.1.4.1.789.1.5.4.1.2.0",
@@ -113,6 +117,18 @@ async def _poll_snmp(storage: StorageSystem, community: str, port: int) -> list[
             metrics.append(("used_capacity_tb", used_tb, "TB"))
         except ValueError:
             pass
+    if "capacity_bytes" in data:
+        try:
+            total_tb = float(data["capacity_bytes"]) / (1024**4)
+            metrics.append(("total_capacity_tb", total_tb, "TB"))
+        except ValueError:
+            pass
+    if "used_bytes" in data:
+        try:
+            used_tb = float(data["used_bytes"]) / (1024**4)
+            metrics.append(("used_capacity_tb", used_tb, "TB"))
+        except ValueError:
+            pass
 
     total_tb = next((v for n, v, _ in metrics if n == "total_capacity_tb"), None)
     used_tb = next((v for n, v, _ in metrics if n == "used_capacity_tb"), None)
@@ -124,6 +140,17 @@ async def _poll_snmp(storage: StorageSystem, community: str, port: int) -> list[
 
 async def _poll_rest(storage: StorageSystem, token: str, port: int) -> list[tuple[str, float, str | None]]:
     from app.services.rest_api_connector import rest_get
+
+    if storage.vendor == StorageVendor.PURE_STORAGE:
+        data = await rest_get(
+            storage.ip_address,
+            "/api/1.17/array?space=true",
+            token,
+            port,
+            verify_ssl=False,
+            auth_style="api-token",
+        )
+        return _parse_pure_storage_response(data)
 
     if storage.vendor == StorageVendor.QNAP:
         data = await rest_get(storage.ip_address, "/api/v1/storage/info", token, port, verify_ssl=False)
@@ -140,6 +167,29 @@ async def _poll_rest(storage: StorageSystem, token: str, port: int) -> list[tupl
             metrics.append(("total_capacity_tb", float(total), "TB"))
         if used:
             metrics.append(("used_capacity_tb", float(used), "TB"))
+    return metrics
+
+
+def _parse_pure_storage_response(data: dict) -> list[tuple[str, float, str | None]]:
+    """Parse Pure Storage FlashArray REST API array space response."""
+    metrics: list[tuple[str, float, str | None]] = [("reachable", 1.0, "bool")]
+    items = data if isinstance(data, list) else [data]
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        capacity = item.get("capacity") or item.get("space", {}).get("capacity")
+        used = item.get("space", {}).get("total_physical") or item.get("space", {}).get("used")
+        if isinstance(capacity, (int, float)) and capacity > 0:
+            total_tb = float(capacity) / (1024**4)
+            metrics.append(("total_capacity_tb", total_tb, "TB"))
+        if isinstance(used, (int, float)):
+            used_tb = float(used) / (1024**4)
+            metrics.append(("used_capacity_tb", used_tb, "TB"))
+        break
+    total = next((v for n, v, _ in metrics if n == "total_capacity_tb"), None)
+    used = next((v for n, v, _ in metrics if n == "used_capacity_tb"), None)
+    if total and used and total > 0:
+        metrics.append(("capacity_usage", (used / total) * 100, "%"))
     return metrics
 
 

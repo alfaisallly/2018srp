@@ -254,6 +254,7 @@ class StorageCreate(BaseModel):
     hostname: str
     ip_address: str
     vendor: StorageVendor
+    model: str | None = None
     storage_type: StorageType = StorageType.OTHER
     total_capacity_tb: float | None = None
     position_u: int | None = None

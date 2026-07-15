@@ -46,6 +46,8 @@ async def migrate_schema(conn) -> None:
     migrations = [
         "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS server_id INTEGER",
         "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS storage_id INTEGER",
+        "ALTER TABLE storage_systems ADD COLUMN IF NOT EXISTS model VARCHAR(128)",
+        "ALTER TYPE storagevendor ADD VALUE IF NOT EXISTS 'pure_storage'",
         "ALTER TYPE protocoltype ADD VALUE IF NOT EXISTS 'ipmi'",
         "ALTER TYPE protocoltype ADD VALUE IF NOT EXISTS 'winrm'",
     ]
@@ -133,6 +135,72 @@ async def seed_datacenter(session, dc_info: dict, assets: dict) -> None:
     print(f"Created datacenter: {dc_info['name']}")
 
 
+PURE_R40 = {
+    "vendor": StorageVendor.PURE_STORAGE,
+    "model": "FlashArray //R40",
+    "storage_type": StorageType.SAN,
+    "total_capacity_tb": 104.0,
+    "notes": "Pure Storage FlashArray //R40",
+    "cred": {"protocol": ProtocolType.REST, "api_token": "pure-api-token", "port": 443},
+}
+
+PURE_STORAGE_SITES = [
+    ("DC-MOROOR-01", "MR-Pure-R40-01", "mr-pure-r40-01", "172.16.10.20"),
+    ("DC-MOI-01", "MOI-Pure-R40-01", "moi-pure-r40-01", "172.16.20.20"),
+]
+
+
+async def sync_pure_storage(session) -> None:
+    """Ensure both datacenters use Pure Storage FlashArray //R40."""
+    for dc_name, sto_name, hostname, ip in PURE_STORAGE_SITES:
+        dc_result = await session.execute(select(DataCenter.id).where(DataCenter.name == dc_name))
+        dc_row = dc_result.first()
+        if not dc_row:
+            continue
+        dc_id = dc_row[0]
+        await session.execute(
+            text(
+                "DELETE FROM storage_credentials WHERE storage_id IN "
+                "(SELECT id FROM storage_systems WHERE datacenter_id = :dc_id)"
+            ),
+            {"dc_id": dc_id},
+        )
+        await session.execute(text("DELETE FROM storage_systems WHERE datacenter_id = :dc_id"), {"dc_id": dc_id})
+        result = await session.execute(
+            text(
+                """
+                INSERT INTO storage_systems
+                  (datacenter_id, name, hostname, ip_address, vendor, model, storage_type,
+                   total_capacity_tb, notes, status)
+                VALUES
+                  (:dc_id, :name, :hostname, :ip, 'pure_storage', :model, 'SAN',
+                   :cap, :notes, 'UNKNOWN')
+                RETURNING id
+                """
+            ),
+            {
+                "dc_id": dc_id,
+                "name": sto_name,
+                "hostname": hostname,
+                "ip": ip,
+                "model": PURE_R40["model"],
+                "cap": PURE_R40["total_capacity_tb"],
+                "notes": PURE_R40["notes"],
+            },
+        )
+        sto_id = result.scalar_one()
+        await session.execute(
+            text(
+                """
+                INSERT INTO storage_credentials (storage_id, protocol, api_token, port)
+                VALUES (:sto_id, 'REST', :token, 443)
+                """
+            ),
+            {"sto_id": sto_id, "token": PURE_R40["cred"]["api_token"]},
+        )
+        print(f"Synced Pure Storage //R40 for {dc_name}: {sto_name}")
+
+
 MOROOR_ASSETS = {
     "devices": [
         ("MR-Core-SW-01", "172.16.10.1", VendorType.CISCO, ProtocolType.SNMP, {"community": "public"}),
@@ -168,14 +236,12 @@ MOROOR_ASSETS = {
     "storage": [
         {
             "data": {
-                "name": "MR-NAS-01",
-                "hostname": "mr-nas-01",
+                "name": "MR-Pure-R40-01",
+                "hostname": "mr-pure-r40-01",
                 "ip_address": "172.16.10.20",
-                "vendor": StorageVendor.NETAPP,
-                "storage_type": StorageType.NAS,
-                "total_capacity_tb": 80.0,
+                **{k: v for k, v in PURE_R40.items() if k != "cred"},
             },
-            "cred": {"protocol": ProtocolType.SNMP, "community": "public", "port": 161},
+            "cred": PURE_R40["cred"],
         },
     ],
     "topology": {
@@ -189,7 +255,7 @@ MOROOR_ASSETS = {
                 {"id": "mr-fw", "label": "MR-FW-01", "color": "#ee3124"},
                 {"id": "mr-app", "label": "MR-APP-SRV-01", "color": "#8b5cf6"},
                 {"id": "mr-db", "label": "MR-DB-SRV-01", "color": "#8b5cf6"},
-                {"id": "mr-nas", "label": "MR-NAS-01", "color": "#f59e0b"},
+                {"id": "mr-pure", "label": "MR-Pure-R40-01", "color": "#fa6200"},
             ],
             "edges": [
                 {"from": "dc-moroor", "to": "mr-sw"},
@@ -197,7 +263,7 @@ MOROOR_ASSETS = {
                 {"from": "mr-rtr", "to": "mr-fw"},
                 {"from": "mr-sw", "to": "mr-app"},
                 {"from": "mr-sw", "to": "mr-db"},
-                {"from": "mr-sw", "to": "mr-nas"},
+                {"from": "mr-sw", "to": "mr-pure"},
             ],
         },
     },
@@ -238,25 +304,12 @@ MOI_ASSETS = {
     "storage": [
         {
             "data": {
-                "name": "MOI-SAN-01",
-                "hostname": "moi-san-01",
+                "name": "MOI-Pure-R40-01",
+                "hostname": "moi-pure-r40-01",
                 "ip_address": "172.16.20.20",
-                "vendor": StorageVendor.DELL_EMC,
-                "storage_type": StorageType.SAN,
-                "total_capacity_tb": 200.0,
+                **{k: v for k, v in PURE_R40.items() if k != "cred"},
             },
-            "cred": {"protocol": ProtocolType.SNMP, "community": "public", "port": 161},
-        },
-        {
-            "data": {
-                "name": "MOI-NAS-02",
-                "hostname": "moi-nas-02",
-                "ip_address": "172.16.20.21",
-                "vendor": StorageVendor.QNAP,
-                "storage_type": StorageType.NAS,
-                "total_capacity_tb": 60.0,
-            },
-            "cred": {"protocol": ProtocolType.REST, "api_token": "sample-token", "port": 443},
+            "cred": PURE_R40["cred"],
         },
     ],
     "topology": {
@@ -270,8 +323,7 @@ MOI_ASSETS = {
                 {"id": "moi-fw", "label": "MOI-FW-01", "color": "#ee3124"},
                 {"id": "moi-web", "label": "MOI-WEB-SRV-01", "color": "#8b5cf6"},
                 {"id": "moi-hv", "label": "MOI-HV-SRV-01", "color": "#8b5cf6"},
-                {"id": "moi-san", "label": "MOI-SAN-01", "color": "#f59e0b"},
-                {"id": "moi-nas", "label": "MOI-NAS-02", "color": "#f59e0b"},
+                {"id": "moi-pure", "label": "MOI-Pure-R40-01", "color": "#fa6200"},
             ],
             "edges": [
                 {"from": "dc-moi", "to": "moi-sw"},
@@ -279,8 +331,7 @@ MOI_ASSETS = {
                 {"from": "moi-rtr", "to": "moi-fw"},
                 {"from": "moi-sw", "to": "moi-web"},
                 {"from": "moi-sw", "to": "moi-hv"},
-                {"from": "moi-sw", "to": "moi-san"},
-                {"from": "moi-sw", "to": "moi-nas"},
+                {"from": "moi-sw", "to": "moi-pure"},
             ],
         },
     },
@@ -309,6 +360,7 @@ async def init_db():
         await cleanup_legacy_data(session)
         await seed_datacenter(session, DC_MOROOR, MOROOR_ASSETS)
         await seed_datacenter(session, DC_MOI, MOI_ASSETS)
+        await sync_pure_storage(session)
 
         await session.commit()
     print("Database initialization complete.")
