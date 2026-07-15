@@ -130,7 +130,30 @@ main { padding: 1.5rem 2rem; }
   margin-bottom: 1rem;
 }
 
-.login-card { max-width: 400px; margin: 4rem auto; }
+.login-screen {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 5.5rem);
+}
+
+.login-screen-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-card { max-width: 400px; width: 100%; margin: 0 auto; }
+
+.login-footer {
+  text-align: center;
+  padding: 1.25rem 1rem 0.5rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+.login-footer p { margin: 0; }
 
 label {
   display: block;

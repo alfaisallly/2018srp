@@ -31,16 +31,21 @@
 
   <main>
     <!-- Login -->
-    <section id="login-panel" class="panel">
-      <div class="card login-card">
-        <h2>تسجيل الدخول</h2>
-        <form id="login-form">
-          <label>اسم المستخدم<input type="text" id="username" required value="admin"></label>
-          <label>كلمة المرور<input type="password" id="password" required value="admin123"></label>
-          <button type="submit">دخول</button>
-        </form>
-        <p id="login-error" class="error"></p>
+    <section id="login-panel" class="panel login-screen">
+      <div class="login-screen-content">
+        <div class="card login-card">
+          <h2>تسجيل الدخول</h2>
+          <form id="login-form">
+            <label>اسم المستخدم<input type="text" id="username" required value="admin"></label>
+            <label>كلمة المرور<input type="password" id="password" required value="admin123"></label>
+            <button type="submit">دخول</button>
+          </form>
+          <p id="login-error" class="error"></p>
+        </div>
       </div>
+      <footer class="login-footer">
+        <p>© 2026 — جميع الحقوق عائدة لمديرية المرور — قسم الاتصالات</p>
+      </footer>
     </section>
 
     <!-- Dashboard -->
