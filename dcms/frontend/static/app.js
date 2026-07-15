@@ -138,10 +138,7 @@ function refreshCurrentPanel() {
   const detailView = document.getElementById('dc-detail-view');
   if (detailView && !detailView.classList.contains('hidden') && selectedDatacenterId) {
     const activeTab = document.querySelector('.dc-tab.active')?.dataset.dcTab || 'overview';
-    openDatacenterDetail(selectedDatacenterId).then(() => {
-      document.querySelectorAll('.dc-tab').forEach(tab => tab.classList.toggle('active', tab.dataset.dcTab === activeTab));
-      renderDcTab(activeTab);
-    });
+    openDatacenterDetail(selectedDatacenterId, activeTab);
     return;
   }
   const activePanel = document.querySelector('.nav-btn.active')?.dataset.panel;
@@ -173,12 +170,16 @@ async function initApp() {
   applyPermissionsUI();
   showPanel('dashboard');
   await loadDashboard();
+  const hashMatch = location.hash.match(/^#dc\/(\d+)$/);
+  if (hashMatch) await openDatacenterDetail(Number(hashMatch[1]));
 }
 
 async function loadDashboard() {
   document.getElementById('dc-detail-view').classList.add('hidden');
+  document.getElementById('stats-grid').classList.remove('hidden');
   selectedDatacenterId = null;
   currentDcOverview = null;
+  clearDcHash();
   document.getElementById('dc-list-view').classList.remove('hidden');
 
   const stats = await api('/reports/dashboard');
@@ -227,9 +228,100 @@ async function loadDashboard() {
 
 
 
-function assetTableRows(items, type) {
+function computeDcHealth(summary) {
+  const totalAssets = (summary.total_devices || 0) + (summary.servers || 0) + (summary.storage || 0);
+  const onlineAssets = (summary.online_devices || 0) + (summary.online_servers || 0) + (summary.online_storage || 0);
+  const assetScore = totalAssets ? Math.round((onlineAssets / totalAssets) * 100) : 100;
+  const sensorTotal = summary.total_sensors || 0;
+  const sensorOk = summary.sensors_up || 0;
+  const sensorScore = sensorTotal ? Math.round((sensorOk / sensorTotal) * 100) : 100;
+  const score = Math.round((assetScore * 0.6) + (sensorScore * 0.4));
+  let level = 'healthy';
+  let labelKey = 'dc.portal.health_healthy';
+  if ((summary.critical_alerts || 0) > 0 || (summary.sensors_down || 0) > 0 || score < 50) {
+    level = 'critical';
+    labelKey = 'dc.portal.health_critical';
+  } else if ((summary.open_alerts || 0) > 0 || (summary.sensors_warning || 0) > 0 || score < 80) {
+    level = 'warning';
+    labelKey = 'dc.portal.health_warning';
+  }
+  return { level, score, labelKey, assetScore, sensorScore };
+}
+
+function setDcHash(dcId) {
+  history.replaceState(null, '', `#dc/${dcId}`);
+}
+
+function clearDcHash() {
+  if (location.hash.startsWith('#dc/')) history.replaceState(null, '', location.pathname + location.search);
+}
+
+function renderProgressBar(label, online, total, icon) {
+  const pct = total ? Math.round((online / total) * 100) : 0;
+  return `<div class="dc-progress-item">
+    <div class="dc-progress-head"><span>${icon} ${label}</span><strong>${online}/${total} (${pct}%)</strong></div>
+    <div class="dc-progress-track"><div class="dc-progress-fill" style="width:${pct}%"></div></div>
+  </div>`;
+}
+
+function renderDcPortalChrome() {
+  if (!currentDcOverview) return;
+  const dc = currentDcOverview.datacenter;
+  const s = currentDcOverview.summary;
+  const health = computeDcHealth(s);
+
+  document.getElementById('dc-detail-name').textContent = dc.name;
+  document.getElementById('dc-detail-location').textContent =
+    [dc.location, dc.description].filter(Boolean).join(' — ') || t('dc.no_details');
+
+  const meta = [];
+  if (dc.contact_email) meta.push(`✉ ${dc.contact_email}`);
+  if (dc.created_at) meta.push(`${t('dc.portal.created')}: ${localeDate(dc.created_at)}`);
+  document.getElementById('dc-hero-meta').innerHTML = meta.map(m => `<span class="dc-meta-chip">${m}</span>`).join('');
+
+  const badge = document.getElementById('dc-health-badge');
+  badge.className = `dc-health-badge ${health.level}`;
+  badge.textContent = t(health.labelKey);
+
+  const ring = document.getElementById('dc-health-ring');
+  ring.className = `dc-health-ring ${health.level}`;
+  document.getElementById('dc-health-score').textContent = `${health.score}%`;
+
+  document.getElementById('dc-detail-stats').innerHTML = `
+    <div class="dc-kpi-card"><div class="dc-kpi-icon">🔀</div><div class="dc-kpi-value">${s.switches}</div><div class="dc-kpi-label">${t('stats.switches')}</div></div>
+    <div class="dc-kpi-card"><div class="dc-kpi-icon">🛡️</div><div class="dc-kpi-value">${s.firewalls}</div><div class="dc-kpi-label">${t('stats.firewalls')}</div></div>
+    <div class="dc-kpi-card"><div class="dc-kpi-icon">🖥️</div><div class="dc-kpi-value">${s.servers}</div><div class="dc-kpi-label">${t('stats.servers_short')}</div></div>
+    <div class="dc-kpi-card"><div class="dc-kpi-icon">💾</div><div class="dc-kpi-value">${s.storage}</div><div class="dc-kpi-label">${t('stats.storage_short')}</div></div>
+    <div class="dc-kpi-card highlight"><div class="dc-kpi-icon">✅</div><div class="dc-kpi-value status-online">${s.online_devices + s.online_servers + s.online_storage}</div><div class="dc-kpi-label">${t('stats.online')}</div></div>
+    <div class="dc-kpi-card ${s.open_alerts ? 'warn' : ''}"><div class="dc-kpi-icon">⚠️</div><div class="dc-kpi-value">${s.open_alerts}</div><div class="dc-kpi-label">${t('stats.alerts')}</div></div>
+    <div class="dc-kpi-card"><div class="dc-kpi-icon">📡</div><div class="dc-kpi-value sensor-status-up">${s.sensors_up}</div><div class="dc-kpi-label">${t('stats.sensors_up')}</div></div>
+    <div class="dc-kpi-card ${s.sensors_down ? 'danger' : ''}"><div class="dc-kpi-icon">⛔</div><div class="dc-kpi-value sensor-status-down">${s.sensors_down}</div><div class="dc-kpi-label">${t('stats.sensors_down')}</div></div>
+  `;
+
+  const setCount = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+  setCount('dc-count-switches', s.switches);
+  setCount('dc-count-firewalls', s.firewalls);
+  setCount('dc-count-servers', s.servers);
+  setCount('dc-count-storage', s.storage);
+  setCount('dc-count-alerts', s.open_alerts);
+
+  document.getElementById('dc-sidebar-health').innerHTML = `
+    <h4>${t('dc.portal.quick_health')}</h4>
+    ${renderProgressBar(t('stats.network_devices'), s.online_devices, s.total_devices, '🔀')}
+    ${renderProgressBar(t('stats.servers_short'), s.online_servers, s.servers, '🖥️')}
+    ${renderProgressBar(t('stats.storage_short'), s.online_storage, s.storage, '💾')}
+    <div class="dc-sensor-mini">
+      <span class="sensor-dot up"></span>${s.sensors_up}
+      <span class="sensor-dot warning"></span>${s.sensors_warning || 0}
+      <span class="sensor-dot down"></span>${s.sensors_down}
+    </div>
+  `;
+}
+
+function assetTableRowsWithActions(items, type) {
   const dash = t('common.dash');
-  if (!items?.length) return `<tr><td colspan="6" style="text-align:center;color:var(--muted)">${t('common.no_assets')}</td></tr>`;
+  if (!items?.length) return `<tr><td colspan="7" style="text-align:center;color:var(--muted)">${t('common.no_assets')}</td></tr>`;
+  const pollFn = type === 'server' ? 'pollServer' : type === 'storage' ? 'pollStorage' : 'pollDevice';
   return items.map(a => {
     const extra = type === 'server'
       ? `<td>${a.os_type || dash}</td><td>${a.server_role || dash}</td>`
@@ -237,37 +329,46 @@ function assetTableRows(items, type) {
         ? `<td>${a.vendor || dash}</td><td>${a.storage_type || dash}</td>`
         : `<td>${vendorLabel(a.vendor) || a.vendor || dash}</td><td>${deviceTypeLabel(a.device_type) || a.device_type || dash}</td>`;
     return `<tr>
-      <td>${a.name}</td><td>${a.ip_address}</td>${extra}
+      <td><strong>${a.name}</strong></td><td>${a.ip_address}</td>${extra}
       <td class="status-${a.status}">${a.status}</td>
       <td>${a.last_seen ? localeDate(a.last_seen) : dash}</td>
+      <td><button class="btn-sm" onclick="${pollFn}(${a.id});openDatacenterDetail(${selectedDatacenterId})">${t('common.poll')}</button></td>
     </tr>`;
   }).join('');
 }
 
-async function openDatacenterDetail(dcId) {
+async function openDatacenterDetail(dcId, tab = 'overview') {
   selectedDatacenterId = dcId;
   currentDcOverview = await api(`/datacenters/${dcId}/overview`);
+  document.getElementById('stats-grid').classList.add('hidden');
   document.getElementById('dc-list-view').classList.add('hidden');
   document.getElementById('dc-detail-view').classList.remove('hidden');
-  const dc = currentDcOverview.datacenter;
-  document.getElementById('dc-detail-name').textContent = dc.name;
-  document.getElementById('dc-detail-location').textContent =
-    [dc.location, dc.description, dc.contact_email].filter(Boolean).join(' — ') || t('dc.no_details');
+  setDcHash(dcId);
+  renderDcPortalChrome();
+  document.querySelectorAll('.dc-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.dcTab === tab));
+  renderDcTab(tab);
+}
 
-  const s = currentDcOverview.summary;
-  document.getElementById('dc-detail-stats').innerHTML = `
-    <div class="stat-card"><div class="value">${s.switches}</div><div class="label">${t('stats.switches')}</div></div>
-    <div class="stat-card"><div class="value">${s.firewalls}</div><div class="label">${t('stats.firewalls')}</div></div>
-    <div class="stat-card"><div class="value">${s.servers}</div><div class="label">${t('stats.servers_short')}</div></div>
-    <div class="stat-card"><div class="value">${s.storage}</div><div class="label">${t('stats.storage_short')}</div></div>
-    <div class="stat-card"><div class="value status-online">${s.online_devices + s.online_servers + s.online_storage}</div><div class="label">${t('stats.online')}</div></div>
-    <div class="stat-card"><div class="value">${s.open_alerts}</div><div class="label">${t('stats.alerts')}</div></div>
-    <div class="stat-card"><div class="value sensor-status-up">${s.sensors_up}</div><div class="label">${t('stats.sensors_up')}</div></div>
-    <div class="stat-card"><div class="value sensor-status-down">${s.sensors_down}</div><div class="label">${t('stats.sensors_down')}</div></div>
-  `;
+async function refreshDatacenterPortal() {
+  if (!selectedDatacenterId) return;
+  const activeTab = document.querySelector('.dc-tab.active')?.dataset.dcTab || 'overview';
+  await openDatacenterDetail(selectedDatacenterId, activeTab);
+}
 
-  document.querySelectorAll('.dc-tab').forEach(t => t.classList.toggle('active', t.dataset.dcTab === 'overview'));
-  renderDcTab('overview');
+async function pollDcAssets() {
+  if (!selectedDatacenterId || !currentDcOverview) return;
+  const ov = currentDcOverview;
+  const deviceIds = [...ov.switches, ...ov.firewalls, ...ov.routers, ...ov.other_devices].map(d => d.id);
+  for (const id of deviceIds) {
+    try { await api(`/devices/${id}/poll`, { method: 'POST' }); } catch (_) {}
+  }
+  for (const s of ov.servers) {
+    try { await api(`/servers/${s.id}/poll`, { method: 'POST' }); } catch (_) {}
+  }
+  for (const st of ov.storage) {
+    try { await api(`/storage/${st.id}/poll`, { method: 'POST' }); } catch (_) {}
+  }
+  await refreshDatacenterPortal();
 }
 
 function renderDcTab(tab) {
@@ -277,66 +378,128 @@ function renderDcTab(tab) {
   const dc = currentDcOverview.datacenter;
 
   if (tab === 'overview') {
-    const none = `<li>${t('common.none')}</li>`;
+    const none = t('common.none');
+    const health = computeDcHealth(s);
     el.innerHTML = `
-      <h3>${t('dc.overview_title', { name: dc.name })}</h3>
-      <div class="dc-overview-grid">
-        <div class="dc-overview-card"><h4>${t('section.switches', { count: s.switches })}</h4><ul>${currentDcOverview.switches.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || none}</ul></div>
-        <div class="dc-overview-card"><h4>${t('section.firewalls', { count: s.firewalls })}</h4><ul>${currentDcOverview.firewalls.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || none}</ul></div>
-        <div class="dc-overview-card"><h4>${t('section.servers', { count: s.servers })}</h4><ul>${currentDcOverview.servers.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || none}</ul></div>
-        <div class="dc-overview-card"><h4>${t('section.storage', { count: s.storage })}</h4><ul>${currentDcOverview.storage.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address}</li>`).join('') || none}</ul></div>
-        <div class="dc-overview-card"><h4>${t('section.alerts', { count: s.open_alerts })}</h4><ul>${currentDcOverview.alerts.slice(0,5).map(a=>`<li class="severity-${a.severity}">${a.title}</li>`).join('') || none}</ul></div>
-        <div class="dc-overview-card"><h4>📊 ${t('dc.overview_maps')} (${s.network_maps})</h4><ul>${currentDcOverview.network_maps.map(m=>`<li>${m.name}</li>`).join('') || `<li>${t('dc.overview_maps_empty')}</li>`}</ul></div>
+      <div class="dc-section-head">
+        <h3>${t('dc.overview_title', { name: dc.name })}</h3>
+        <p class="muted">${t('dc.portal.overview_desc')}</p>
+      </div>
+      <div class="dc-overview-dashboard">
+        <div class="dc-panel-grid">
+          <div class="dc-panel-card">
+            <h4>${t('dc.portal.asset_health')}</h4>
+            ${renderProgressBar(t('stats.network_devices'), s.online_devices, s.total_devices, '🔀')}
+            ${renderProgressBar(t('stats.servers_short'), s.online_servers, s.servers, '🖥️')}
+            ${renderProgressBar(t('stats.storage_short'), s.online_storage, s.storage, '💾')}
+          </div>
+          <div class="dc-panel-card">
+            <h4>${t('dc.portal.sensor_status')}</h4>
+            <div class="dc-sensor-bars">
+              <div class="dc-sensor-bar up" style="flex:${s.sensors_up || 0.1}"><span>${t('sensors.up')}</span><strong>${s.sensors_up}</strong></div>
+              <div class="dc-sensor-bar warning" style="flex:${s.sensors_warning || 0.1}"><span>${t('sensors.warning')}</span><strong>${s.sensors_warning || 0}</strong></div>
+              <div class="dc-sensor-bar down" style="flex:${s.sensors_down || 0.1}"><span>${t('sensors.down')}</span><strong>${s.sensors_down}</strong></div>
+            </div>
+            <p class="muted dc-panel-foot">${t('dc.portal.total_sensors', { count: s.total_sensors })}</p>
+          </div>
+          <div class="dc-panel-card">
+            <h4>${t('dc.portal.recent_alerts')}</h4>
+            <ul class="dc-alert-feed">
+              ${currentDcOverview.alerts.slice(0, 6).map(a => `
+                <li class="severity-${a.severity}">
+                  <strong>${a.title}</strong>
+                  <span>${a.severity} — ${localeDate(a.created_at)}</span>
+                </li>`).join('') || `<li class="muted">${t('alerts.no_open')}</li>`}
+            </ul>
+          </div>
+        </div>
+        <div class="dc-quick-nav">
+          <button class="dc-quick-card" onclick="switchDcTab('switches')"><span>🔀</span><strong>${s.switches}</strong><em>${t('dc.tab.switches')}</em></button>
+          <button class="dc-quick-card" onclick="switchDcTab('firewalls')"><span>🛡️</span><strong>${s.firewalls}</strong><em>${t('dc.tab.firewalls')}</em></button>
+          <button class="dc-quick-card" onclick="switchDcTab('servers')"><span>🖥️</span><strong>${s.servers}</strong><em>${t('dc.tab.servers')}</em></button>
+          <button class="dc-quick-card" onclick="switchDcTab('storage')"><span>💾</span><strong>${s.storage}</strong><em>${t('dc.tab.storage')}</em></button>
+          <button class="dc-quick-card" onclick="switchDcTab('monitoring')"><span>📡</span><strong>${s.total_sensors}</strong><em>${t('dc.tab.monitoring')}</em></button>
+          <button class="dc-quick-card" onclick="switchDcTab('topology')"><span>🗺️</span><strong>${s.network_maps}</strong><em>${t('dc.tab.topology')}</em></button>
+        </div>
+        <div class="dc-overview-grid">
+          <div class="dc-overview-card"><h4>${t('section.switches', { count: s.switches })}</h4><ul>${currentDcOverview.switches.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address} <span class="status-${d.status}">${d.status}</span></li>`).join('') || `<li>${none}</li>`}</ul></div>
+          <div class="dc-overview-card"><h4>${t('section.servers', { count: s.servers })}</h4><ul>${currentDcOverview.servers.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address} <span class="status-${d.status}">${d.status}</span></li>`).join('') || `<li>${none}</li>`}</ul></div>
+          <div class="dc-overview-card"><h4>${t('section.storage', { count: s.storage })}</h4><ul>${currentDcOverview.storage.slice(0,5).map(d=>`<li>${d.name} — ${d.ip_address} <span class="status-${d.status}">${d.status}</span></li>`).join('') || `<li>${none}</li>`}</ul></div>
+        </div>
       </div>`;
     return;
   }
 
+  if (tab === 'monitoring') {
+    const sensors = currentDcOverview.sensors;
+    const dash = t('common.dash');
+    el.innerHTML = `
+      <div class="dc-section-head">
+        <h3>${t('dc.monitoring_title', { name: dc.name })}</h3>
+        <p class="muted">${t('dc.portal.monitoring_desc')}</p>
+      </div>
+      <div class="sensor-summary-bar dc-monitor-summary">
+        <div class="chip"><span class="sensor-dot up"></span>${t('sensors.up')}: <strong>${s.sensors_up}</strong></div>
+        <div class="chip"><span class="sensor-dot warning"></span>${t('sensors.warning')}: <strong>${s.sensors_warning || 0}</strong></div>
+        <div class="chip"><span class="sensor-dot down"></span>${t('sensors.down')}: <strong>${s.sensors_down}</strong></div>
+        <div class="chip">${t('sensors.total')}: <strong>${s.total_sensors}</strong></div>
+      </div>
+      <table><thead><tr><th></th><th>${t('sensors.sensor')}</th><th>${t('common.type')}</th><th>${t('sensors.value')}</th><th>${t('common.status')}</th><th>${t('sensors.last_check')}</th><th>${t('common.action')}</th></tr></thead><tbody>
+      ${sensors.length ? sensors.map(sen => `<tr>
+        <td><span class="sensor-dot ${sen.last_status}"></span></td>
+        <td>${sen.name}</td><td>${assetTypeLabel(sen.asset_type) || sen.asset_type}</td>
+        <td><strong>${sen.last_value != null ? sen.last_value + (sen.unit || '') : dash}</strong></td>
+        <td class="sensor-status-${sen.last_status}">${sen.status_label}</td>
+        <td>${sen.last_check_at ? localeDate(sen.last_check_at) : dash}</td>
+        <td><button class="btn-sm" onclick="openSensorDetail(${sen.id})">${t('sensors.detail')}</button></td>
+      </tr>`).join('') : `<tr><td colspan="7" style="text-align:center;color:var(--muted)">${t('sensors.no_sensors_dc')}</td></tr>`}
+    </tbody></table>`;
+    return;
+  }
+
   if (tab === 'switches') {
-    el.innerHTML = `<h3>${t('dc.tab.switches')}</h3><table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('common.vendor')}</th><th>${t('common.type')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th></tr></thead><tbody>${assetTableRows(currentDcOverview.switches, 'device')}</tbody></table>`;
+    el.innerHTML = `<div class="dc-section-head"><h3>${t('dc.tab.switches')}</h3><p class="muted">${t('dc.portal.switches_desc')}</p></div>
+      <table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('common.vendor')}</th><th>${t('common.type')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th><th>${t('common.action')}</th></tr></thead><tbody>${assetTableRowsWithActions(currentDcOverview.switches, 'device')}</tbody></table>`;
     return;
   }
 
   if (tab === 'firewalls') {
-    el.innerHTML = `<h3>${t('dc.tab.firewalls')}</h3><table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('common.vendor')}</th><th>${t('common.type')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th></tr></thead><tbody>${assetTableRows(currentDcOverview.firewalls, 'device')}</tbody></table>`;
+    el.innerHTML = `<div class="dc-section-head"><h3>${t('dc.tab.firewalls')}</h3><p class="muted">${t('dc.portal.firewalls_desc')}</p></div>
+      <table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('common.vendor')}</th><th>${t('common.type')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th><th>${t('common.action')}</th></tr></thead><tbody>${assetTableRowsWithActions(currentDcOverview.firewalls, 'device')}</tbody></table>`;
     return;
   }
 
   if (tab === 'servers') {
-    el.innerHTML = `<h3>${t('dc.tab.servers')}</h3><table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('servers.os')}</th><th>${t('common.role_col')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th></tr></thead><tbody>${assetTableRows(currentDcOverview.servers, 'server')}</tbody></table>`;
+    el.innerHTML = `<div class="dc-section-head"><h3>${t('dc.tab.servers')}</h3><p class="muted">${t('dc.portal.servers_desc')}</p></div>
+      <table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('servers.os')}</th><th>${t('common.role_col')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th><th>${t('common.action')}</th></tr></thead><tbody>${assetTableRowsWithActions(currentDcOverview.servers, 'server')}</tbody></table>`;
     return;
   }
 
   if (tab === 'storage') {
-    el.innerHTML = `<h3>${t('storage.title')}</h3><table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('common.vendor')}</th><th>${t('common.type')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th></tr></thead><tbody>${assetTableRows(currentDcOverview.storage, 'storage')}</tbody></table>`;
+    el.innerHTML = `<div class="dc-section-head"><h3>${t('storage.title')}</h3><p class="muted">${t('dc.portal.storage_desc')}</p></div>
+      <table><thead><tr><th>${t('common.name')}</th><th>${t('common.ip')}</th><th>${t('common.vendor')}</th><th>${t('common.type')}</th><th>${t('common.status')}</th><th>${t('common.last_seen')}</th><th>${t('common.action')}</th></tr></thead><tbody>${assetTableRowsWithActions(currentDcOverview.storage, 'storage')}</tbody></table>`;
     return;
   }
 
   if (tab === 'topology') {
     const maps = currentDcOverview.network_maps;
     if (!maps.length) {
-      el.innerHTML = `<h3>${t('dc.tab.topology')}</h3><p class="muted">${t('dc.topology_empty')}</p>`;
+      el.innerHTML = `<div class="dc-section-head"><h3>${t('dc.tab.topology')}</h3><p class="muted">${t('dc.topology_empty')}</p></div>`;
       return;
     }
-    const map = maps[0];
-    el.innerHTML = `<h3>${t('dc.topology_title', { name: map.name })}</h3>
-      ${maps.length > 1 ? `<p class="muted">${t('dc.topology_showing', { name: map.name, count: maps.length })}</p>` : ''}
+    const mapOptions = maps.map(m => `<option value="${m.id}">${m.name}</option>`).join('');
+    el.innerHTML = `<div class="dc-section-head"><h3>${t('dc.topology_title', { name: dc.name })}</h3>
+      <p class="muted">${t('dc.portal.topology_desc')}</p></div>
+      ${maps.length > 1 ? `<div class="toolbar"><select id="dc-map-selector">${mapOptions}</select></div>` : ''}
       <div id="dc-topology-graph"></div>`;
-    setTimeout(() => renderDcTopology(map.topology), 50);
-    return;
-  }
-
-  if (tab === 'sensors') {
-    const sensors = currentDcOverview.sensors;
-    const dash = t('common.dash');
-    el.innerHTML = `<h3>${t('dc.tab.sensors')}</h3><table><thead><tr><th></th><th>${t('sensors.sensor')}</th><th>${t('common.type')}</th><th>${t('sensors.value')}</th><th>${t('common.status')}</th><th>${t('sensors.last_check')}</th></tr></thead><tbody>
-      ${sensors.length ? sensors.map(s => `<tr>
-        <td><span class="sensor-dot ${s.last_status}"></span></td>
-        <td>${s.name}</td><td>${assetTypeLabel(s.asset_type) || s.asset_type}</td>
-        <td>${s.last_value != null ? s.last_value + (s.unit || '') : dash}</td>
-        <td class="sensor-status-${s.last_status}">${s.status_label}</td>
-        <td>${s.last_check_at ? localeDate(s.last_check_at) : dash}</td>
-      </tr>`).join('') : `<tr><td colspan="6" style="text-align:center;color:var(--muted)">${t('sensors.no_sensors_dc')}</td></tr>`}
-    </tbody></table>`;
+    const renderSelected = (map) => setTimeout(() => renderDcTopology(map.topology), 50);
+    renderSelected(maps[0]);
+    if (maps.length > 1) {
+      document.getElementById('dc-map-selector').onchange = (e) => {
+        const map = maps.find(m => String(m.id) === e.target.value);
+        if (map) renderSelected(map);
+      };
+    }
     return;
   }
 
@@ -354,14 +517,32 @@ function renderDcTab(tab) {
   }
 
   if (tab === 'reports') {
-    el.innerHTML = `<h3>${t('dc.reports_title', { name: dc.name })}</h3>
-      <p>${t('dc.reports_desc')}</p>
-      <div class="form-actions">
-        <button id="dc-download-report">${t('dc.download_report')}</button>
-        <button class="btn-secondary" onclick="showPanel('reports')">${t('dc.open_reports_tab')}</button>
+    el.innerHTML = `<div class="dc-section-head"><h3>${t('dc.reports_title', { name: dc.name })}</h3>
+      <p class="muted">${t('dc.reports_desc')}</p></div>
+      <div class="dc-reports-grid">
+        <div class="dc-report-card">
+          <h4>📄 ${t('dc.portal.report_pdf')}</h4>
+          <p>${t('dc.portal.report_pdf_desc')}</p>
+          <button id="dc-download-report">${t('dc.download_report')}</button>
+        </div>
+        <div class="dc-report-card">
+          <h4>📊 ${t('dc.portal.report_summary')}</h4>
+          <ul class="dc-report-summary">
+            <li>${t('stats.switches')}: <strong>${s.switches}</strong></li>
+            <li>${t('stats.servers_short')}: <strong>${s.servers}</strong></li>
+            <li>${t('stats.storage_short')}: <strong>${s.storage}</strong></li>
+            <li>${t('stats.alerts')}: <strong>${s.open_alerts}</strong></li>
+            <li>${t('stats.sensors')}: <strong>${s.total_sensors}</strong></li>
+          </ul>
+        </div>
       </div>`;
     document.getElementById('dc-download-report')?.addEventListener('click', () => downloadDcReport(selectedDatacenterId));
   }
+}
+
+function switchDcTab(tab) {
+  document.querySelectorAll('.dc-tab').forEach(btn => btn.classList.toggle('active', btn.dataset.dcTab === tab));
+  renderDcTab(tab);
 }
 
 function renderDcTopology(topology) {
@@ -392,6 +573,16 @@ async function downloadDcReport(dcId) {
 }
 
 document.getElementById('back-to-dcs')?.addEventListener('click', loadDashboard);
+document.getElementById('dc-refresh-btn')?.addEventListener('click', refreshDatacenterPortal);
+document.getElementById('dc-poll-all-btn')?.addEventListener('click', pollDcAssets);
+document.getElementById('dc-download-report-hero')?.addEventListener('click', () => {
+  if (selectedDatacenterId) downloadDcReport(selectedDatacenterId);
+});
+window.addEventListener('hashchange', () => {
+  const m = location.hash.match(/^#dc\/(\d+)$/);
+  if (m && token) openDatacenterDetail(Number(m[1]));
+  else if (!location.hash.startsWith('#dc/') && selectedDatacenterId) loadDashboard();
+});
 document.getElementById('show-add-dc')?.addEventListener('click', () => {
   document.getElementById('add-dc-form').classList.toggle('hidden');
 });
@@ -1279,6 +1470,7 @@ document.getElementById('excel-apply-btn')?.addEventListener('click', async () =
 });
 
 window.openDatacenterDetail = openDatacenterDetail;
+window.switchDcTab = switchDcTab;
 window.ackAlert = ackAlert;
 window.resolveAlert = resolveAlert;
 window.downloadDcReport = downloadDcReport;

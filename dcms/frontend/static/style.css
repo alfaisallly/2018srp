@@ -525,6 +525,367 @@ th { color: var(--muted); font-weight: 500; }
 
 .dc-detail-title-wrap h2 { margin-bottom: 0.2rem; }
 
+/* Datacenter Portal Page */
+.dc-portal { margin-top: -0.5rem; }
+
+.dc-portal-hero {
+  background: linear-gradient(135deg, #1e3a5f 0%, var(--surface) 55%, #0f172a 100%);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.dc-hero-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dc-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.dc-hero-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.dc-hero-info h1 {
+  font-size: 1.75rem;
+  margin: 0.35rem 0;
+}
+
+.dc-health-badge {
+  display: inline-block;
+  padding: 0.2rem 0.65rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+}
+
+.dc-health-badge.healthy { background: rgba(34, 197, 94, 0.2); color: #22c55e; border: 1px solid #22c55e; }
+.dc-health-badge.warning { background: rgba(234, 179, 8, 0.2); color: #eab308; border: 1px solid #eab308; }
+.dc-health-badge.critical { background: rgba(239, 68, 68, 0.2); color: #ef4444; border: 1px solid #ef4444; }
+
+.dc-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.dc-meta-chip {
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: rgba(15, 23, 42, 0.5);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.2rem 0.55rem;
+}
+
+.dc-health-ring-wrap {
+  text-align: center;
+  min-width: 90px;
+}
+
+.dc-health-ring {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  border: 4px solid var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  margin: 0 auto 0.35rem;
+}
+
+.dc-health-ring.healthy { border-color: #22c55e; color: #22c55e; }
+.dc-health-ring.warning { border-color: #eab308; color: #eab308; }
+.dc-health-ring.critical { border-color: #ef4444; color: #ef4444; }
+
+.dc-health-ring-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+}
+
+.dc-kpi-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.dc-kpi-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem;
+  text-align: center;
+}
+
+.dc-kpi-card.warn { border-color: #eab308; }
+.dc-kpi-card.danger { border-color: #ef4444; }
+.dc-kpi-card.highlight { border-color: var(--primary); }
+
+.dc-kpi-icon { font-size: 1.1rem; margin-bottom: 0.25rem; }
+.dc-kpi-value { font-size: 1.4rem; font-weight: 700; }
+.dc-kpi-label { font-size: 0.75rem; color: var(--muted); margin-top: 0.15rem; }
+
+.dc-portal-body {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: 1rem;
+  align-items: start;
+}
+
+.dc-sidebar {
+  padding: 1rem;
+  position: sticky;
+  top: 1rem;
+}
+
+.dc-sidebar-title {
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.dc-sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.dc-sidebar-nav .dc-tab {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  text-align: right;
+  padding: 0.55rem 0.75rem;
+  border-radius: 8px;
+}
+
+.dc-tab-icon { font-size: 1rem; width: 1.25rem; text-align: center; }
+
+.dc-tab-count {
+  margin-right: auto;
+  font-size: 0.72rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.45rem;
+  color: var(--muted);
+}
+
+.dc-tab.active .dc-tab-count {
+  background: rgba(255,255,255,0.15);
+  border-color: rgba(255,255,255,0.3);
+  color: white;
+}
+
+.dc-tab-count-alert { color: #eab308; }
+
+.dc-sidebar-health {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+
+.dc-sidebar-health h4 {
+  font-size: 0.85rem;
+  margin-bottom: 0.65rem;
+  color: var(--muted);
+}
+
+.card-inner { background: transparent; border: none; padding: 0; }
+
+.dc-portal-main {
+  min-height: 420px;
+  padding: 1.25rem;
+}
+
+.dc-section-head {
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.dc-section-head h3 { margin-bottom: 0.25rem; }
+
+.dc-panel-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dc-panel-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.dc-panel-card h4 {
+  margin-bottom: 0.75rem;
+  color: var(--primary);
+  font-size: 0.95rem;
+}
+
+.dc-progress-item { margin-bottom: 0.65rem; }
+.dc-progress-head {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  margin-bottom: 0.25rem;
+  color: var(--muted);
+}
+
+.dc-progress-track {
+  height: 6px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.dc-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #22c55e);
+  border-radius: 999px;
+}
+
+.dc-sensor-bars {
+  display: flex;
+  gap: 0.35rem;
+  min-height: 64px;
+  align-items: stretch;
+}
+
+.dc-sensor-bar {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  min-width: 48px;
+}
+
+.dc-sensor-bar.up { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.dc-sensor-bar.warning { background: rgba(234, 179, 8, 0.2); color: #eab308; }
+.dc-sensor-bar.down { background: rgba(239, 68, 68, 0.2); color: #ef4444; }
+
+.dc-panel-foot { margin-top: 0.5rem; font-size: 0.8rem; }
+
+.dc-alert-feed {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dc-alert-feed li {
+  padding: 0.5rem 0.65rem;
+  background: var(--surface);
+  border-radius: 6px;
+  border-right: 3px solid var(--border);
+}
+
+.dc-alert-feed li.severity-critical { border-right-color: #ef4444; }
+.dc-alert-feed li.severity-warning { border-right-color: #eab308; }
+.dc-alert-feed li.severity-info { border-right-color: var(--primary); }
+
+.dc-alert-feed li span {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 0.15rem;
+}
+
+.dc-quick-nav {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(110px, 1fr));
+  gap: 0.65rem;
+  margin-bottom: 1.25rem;
+}
+
+.dc-quick-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.85rem;
+  cursor: pointer;
+  text-align: center;
+  color: var(--text);
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.dc-quick-card:hover {
+  border-color: var(--primary);
+  transform: translateY(-2px);
+}
+
+.dc-quick-card span { font-size: 1.4rem; display: block; }
+.dc-quick-card strong { display: block; font-size: 1.2rem; margin: 0.2rem 0; }
+.dc-quick-card em { font-size: 0.75rem; color: var(--muted); font-style: normal; }
+
+.dc-sensor-mini {
+  display: flex;
+  gap: 0.75rem;
+  font-size: 0.82rem;
+  margin-top: 0.5rem;
+}
+
+.dc-monitor-summary { margin-bottom: 1rem; }
+
+.dc-reports-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+}
+
+.dc-report-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1.25rem;
+}
+
+.dc-report-card h4 { margin-bottom: 0.5rem; }
+.dc-report-card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+
+.dc-report-summary {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+@media (max-width: 900px) {
+  .dc-portal-body { grid-template-columns: 1fr; }
+  .dc-sidebar { position: static; }
+  .dc-sidebar-nav {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .dc-sidebar-nav .dc-tab { width: auto; flex: 1 1 auto; min-width: 140px; }
+}
+
 .dc-tabs {
   display: flex;
   flex-wrap: wrap;

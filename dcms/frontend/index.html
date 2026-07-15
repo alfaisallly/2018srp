@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="app.title">DCMS - إدارة مراكز البيانات</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=4">
+  <link rel="stylesheet" href="/static/style.css?v=5">
 </head>
 <body>
   <div class="lang-switcher lang-switcher-corner" id="lang-switcher">
@@ -86,27 +86,52 @@
         </div>
       </div>
 
-      <div id="dc-detail-view" class="hidden">
-        <div class="card dc-detail-header">
-          <button id="back-to-dcs" class="btn-secondary" data-i18n="dc.back_all">← جميع المراكز</button>
-          <div class="dc-detail-title-wrap">
-            <h2 id="dc-detail-name"></h2>
-            <p id="dc-detail-location" class="muted"></p>
+      <div id="dc-detail-view" class="hidden dc-portal">
+        <div class="dc-portal-hero">
+          <div class="dc-hero-top">
+            <button id="back-to-dcs" class="btn-secondary dc-back-btn" data-i18n="dc.back_all">← جميع المراكز</button>
+            <div class="dc-hero-actions">
+              <button id="dc-refresh-btn" class="btn-secondary" data-i18n="dc.portal.refresh">↻ تحديث</button>
+              <button id="dc-poll-all-btn" class="btn-secondary" data-i18n="dc.portal.poll_all">⚡ فحص الأصول</button>
+              <button id="dc-download-report-hero" data-i18n="dc.download_report">📄 تقرير PDF</button>
+            </div>
+          </div>
+          <div class="dc-hero-main">
+            <div class="dc-hero-info">
+              <span id="dc-health-badge" class="dc-health-badge healthy" data-i18n="dc.portal.health_healthy">سليم</span>
+              <h1 id="dc-detail-name"></h1>
+              <p id="dc-detail-location" class="muted"></p>
+              <div id="dc-hero-meta" class="dc-hero-meta"></div>
+            </div>
+            <div class="dc-health-ring-wrap">
+              <div class="dc-health-ring" id="dc-health-ring">
+                <span id="dc-health-score">—</span>
+              </div>
+              <span class="dc-health-ring-label" data-i18n="dc.portal.health_score">مؤشر الصحة</span>
+            </div>
           </div>
         </div>
-        <div id="dc-detail-stats" class="stats-grid dc-stats"></div>
-        <div class="dc-tabs" id="dc-tabs">
-          <button class="dc-tab active" data-dc-tab="overview" data-i18n="dc.tab.overview">نظرة عامة</button>
-          <button class="dc-tab" data-dc-tab="switches" data-i18n="dc.tab.switches">السويجات</button>
-          <button class="dc-tab" data-dc-tab="firewalls" data-i18n="dc.tab.firewalls">جدران الحماية</button>
-          <button class="dc-tab" data-dc-tab="servers" data-i18n="dc.tab.servers">الخوادم</button>
-          <button class="dc-tab" data-dc-tab="storage" data-i18n="dc.tab.storage">التخزين</button>
-          <button class="dc-tab" data-dc-tab="topology" data-i18n="dc.tab.topology">مخطط الربط</button>
-          <button class="dc-tab" data-dc-tab="sensors" data-i18n="dc.tab.sensors">الحساسات</button>
-          <button class="dc-tab" data-dc-tab="alerts" data-i18n="dc.tab.alerts">التنبيهات</button>
-          <button class="dc-tab" data-dc-tab="reports" data-i18n="dc.tab.reports">التقارير</button>
+
+        <div id="dc-detail-stats" class="dc-kpi-row"></div>
+
+        <div class="dc-portal-body">
+          <aside class="dc-sidebar card">
+            <h3 class="dc-sidebar-title" data-i18n="dc.portal.sections">أقسام المركز</h3>
+            <nav class="dc-sidebar-nav" id="dc-tabs">
+              <button class="dc-tab active" data-dc-tab="overview"><span class="dc-tab-icon">📊</span><span data-i18n="dc.tab.overview">نظرة عامة</span></button>
+              <button class="dc-tab" data-dc-tab="monitoring"><span class="dc-tab-icon">📡</span><span data-i18n="dc.tab.monitoring">المراقبة</span></button>
+              <button class="dc-tab" data-dc-tab="switches"><span class="dc-tab-icon">🔀</span><span data-i18n="dc.tab.switches">السويجات</span><span class="dc-tab-count" id="dc-count-switches">0</span></button>
+              <button class="dc-tab" data-dc-tab="firewalls"><span class="dc-tab-icon">🛡️</span><span data-i18n="dc.tab.firewalls">جدران الحماية</span><span class="dc-tab-count" id="dc-count-firewalls">0</span></button>
+              <button class="dc-tab" data-dc-tab="servers"><span class="dc-tab-icon">🖥️</span><span data-i18n="dc.tab.servers">الخوادم</span><span class="dc-tab-count" id="dc-count-servers">0</span></button>
+              <button class="dc-tab" data-dc-tab="storage"><span class="dc-tab-icon">💾</span><span data-i18n="dc.tab.storage">التخزين</span><span class="dc-tab-count" id="dc-count-storage">0</span></button>
+              <button class="dc-tab" data-dc-tab="topology"><span class="dc-tab-icon">🗺️</span><span data-i18n="dc.tab.topology">مخطط الربط</span></button>
+              <button class="dc-tab" data-dc-tab="alerts"><span class="dc-tab-icon">⚠️</span><span data-i18n="dc.tab.alerts">التنبيهات</span><span class="dc-tab-count dc-tab-count-alert" id="dc-count-alerts">0</span></button>
+              <button class="dc-tab" data-dc-tab="reports"><span class="dc-tab-icon">📋</span><span data-i18n="dc.tab.reports">التقارير</span></button>
+            </nav>
+            <div class="dc-sidebar-health card-inner" id="dc-sidebar-health"></div>
+          </aside>
+          <div id="dc-tab-content" class="dc-portal-main card"></div>
         </div>
-        <div id="dc-tab-content" class="card"></div>
       </div>
     </section>
 
@@ -555,8 +580,8 @@
     </section>
   </main>
 
-  <script src="/static/i18n.js?v=4"></script>
+  <script src="/static/i18n.js?v=5"></script>
   <script>I18n.init();</script>
-  <script src="/static/app.js?v=4"></script>
+  <script src="/static/app.js?v=5"></script>
 </body>
 </html>
