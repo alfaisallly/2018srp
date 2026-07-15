@@ -66,7 +66,7 @@ async def list_targets() -> list[dict[str, Any]]:
 
 @app.post("/api/targets", status_code=201)
 async def create_target(payload: TargetCreate) -> dict[str, Any]:
-    if payload.check_type in ("tcp", "http") and payload.port is None and payload.check_type == "tcp":
+    if payload.check_type == "tcp" and payload.port is None:
         raise HTTPException(status_code=400, detail="TCP checks require a port")
     created = await db.create_target(payload.model_dump())
     await monitor.check_now(created["id"])
