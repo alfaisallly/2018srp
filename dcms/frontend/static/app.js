@@ -65,6 +65,8 @@ function logout() {
   currentUser = null;
   currentPermissions = new Set();
   localStorage.removeItem('dcms_token');
+  localStorage.removeItem('dcms_view_mode');
+  localStorage.removeItem('dcms_global_dc_filter');
   document.getElementById('logout-btn')?.classList.add('hidden');
   showPanel('login');
 }
@@ -124,6 +126,8 @@ document.getElementById('logout-btn')?.addEventListener('click', () => {
 });
 
 async function initApp() {
+  localStorage.removeItem('dcms_view_mode');
+  localStorage.removeItem('dcms_global_dc_filter');
   const user = await api('/auth/me');
   currentUser = user;
   currentPermissions = new Set(user.permission_keys || []);
