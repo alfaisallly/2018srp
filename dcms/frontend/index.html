@@ -24,6 +24,7 @@
     <button class="nav-btn" data-panel="network-map" data-perm="view">خريطة الشبكة</button>
     <button class="nav-btn" data-panel="alerts" data-perm="view">التنبيهات</button>
     <button class="nav-btn" data-panel="reports" data-perm="view_reports">التقارير</button>
+    <button class="nav-btn" data-panel="import-excel" data-perm="manage_devices" id="nav-import">استيراد Excel</button>
     <button class="nav-btn hidden" data-panel="users" data-perm="manage_users" id="nav-users">المستخدمين</button>
   </nav>
 
@@ -304,6 +305,59 @@
         <p>تصدير تقرير PDF/HTML لمركز بيانات:</p>
         <select id="report-dc-selector"></select>
         <button id="download-report">تحميل التقرير</button>
+      </div>
+    </section>
+
+    <!-- Excel Import -->
+    <section id="import-excel-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>استيراد من Excel</h2>
+          <div class="toolbar-actions">
+            <button id="download-excel-template" class="btn-secondary">📥 تحميل القالب</button>
+          </div>
+        </div>
+        <p class="muted import-hint">
+          ارفع ملف Excel (.xlsx) يحتوي على أجهزة الشبكة والسيرفرات والتخزين وعناوين IP.
+          سيتم تحليل الملف وعرض معاينة قبل الاستيراد، ثم إنشاء الأصول ومراكز البيانات ومخططات الشبكة تلقائياً.
+        </p>
+        <div class="import-dropzone" id="excel-dropzone">
+          <input type="file" id="excel-file-input" accept=".xlsx,.xls" hidden>
+          <p>اسحب ملف Excel هنا أو</p>
+          <button type="button" id="excel-browse-btn" class="btn-secondary">اختيار ملف</button>
+          <p id="excel-file-name" class="muted"></p>
+        </div>
+        <div class="form-actions import-actions">
+          <label class="import-skip">
+            <input type="checkbox" id="excel-skip-existing" checked>
+            تخطي الأصول الموجودة (نفس IP)
+          </label>
+          <button id="excel-preview-btn" disabled>معاينة</button>
+          <button id="excel-apply-btn" class="btn-primary" disabled>تأكيد الاستيراد</button>
+        </div>
+        <p id="excel-status" class="muted"></p>
+        <div id="excel-preview" class="hidden">
+          <div id="excel-summary" class="stats-grid import-summary"></div>
+          <div id="excel-errors" class="error-box hidden"></div>
+          <h3>مراكز البيانات</h3>
+          <div id="excel-dc-list"></div>
+          <h3>الأصول</h3>
+          <table id="excel-assets-table">
+            <thead>
+              <tr>
+                <th>صف</th><th>مركز البيانات</th><th>النوع</th><th>الاسم</th><th>IP</th><th>المورّد</th><th>البروتوكول</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <h3>روابط المخطط</h3>
+          <table id="excel-links-table">
+            <thead>
+              <tr><th>صف</th><th>مركز البيانات</th><th>من</th><th>إلى</th><th>الوصف</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

@@ -109,6 +109,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (panel === 'reports') loadReportSelector();
     if (panel === 'users') loadUsers();
     if (panel === 'dashboard') loadDashboard();
+    if (panel === 'import-excel') resetExcelImportUI();
   });
 });
 
@@ -718,6 +719,144 @@ document.getElementById('user-form').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('refresh-users').addEventListener('click', loadUsers);
+
+// --- Excel Import ---
+let excelSelectedFile = null;
+let excelPreviewData = null;
+
+function resetExcelImportUI() {
+  excelSelectedFile = null;
+  excelPreviewData = null;
+  document.getElementById('excel-file-input').value = '';
+  document.getElementById('excel-file-name').textContent = '';
+  document.getElementById('excel-preview-btn').disabled = true;
+  document.getElementById('excel-apply-btn').disabled = true;
+  document.getElementById('excel-status').textContent = '';
+  document.getElementById('excel-preview').classList.add('hidden');
+}
+
+function setExcelFile(file) {
+  if (!file) return;
+  const ext = file.name.split('.').pop()?.toLowerCase();
+  if (!['xlsx', 'xls'].includes(ext)) {
+    document.getElementById('excel-status').textContent = 'يُقبل ملف Excel فقط (.xlsx)';
+    return;
+  }
+  excelSelectedFile = file;
+  excelPreviewData = null;
+  document.getElementById('excel-file-name').textContent = file.name;
+  document.getElementById('excel-preview-btn').disabled = false;
+  document.getElementById('excel-apply-btn').disabled = true;
+  document.getElementById('excel-status').textContent = '';
+  document.getElementById('excel-preview').classList.add('hidden');
+}
+
+function renderExcelPreview(data) {
+  excelPreviewData = data;
+  document.getElementById('excel-preview').classList.remove('hidden');
+  const s = data.summary || {};
+  document.getElementById('excel-summary').innerHTML = `
+    <div class="stat-card"><div class="value">${s.total || 0}</div><div class="label">إجمالي الأصول</div></div>
+    <div class="stat-card"><div class="value">${s.devices || 0}</div><div class="label">أجهزة شبكة</div></div>
+    <div class="stat-card"><div class="value">${s.servers || 0}</div><div class="label">سيرفرات</div></div>
+    <div class="stat-card"><div class="value">${s.storage || 0}</div><div class="label">تخزين</div></div>
+    <div class="stat-card"><div class="value">${s.links || 0}</div><div class="label">روابط</div></div>
+    <div class="stat-card"><div class="value">${s.datacenters || 0}</div><div class="label">مراكز بيانات</div></div>
+  `;
+  const errBox = document.getElementById('excel-errors');
+  if (data.errors?.length) {
+    errBox.classList.remove('hidden');
+    errBox.innerHTML = '<strong>تحذيرات:</strong><ul>' + data.errors.map(e => `<li>${e}</li>`).join('') + '</ul>';
+  } else {
+    errBox.classList.add('hidden');
+    errBox.innerHTML = '';
+  }
+  document.getElementById('excel-dc-list').innerHTML = (data.datacenters || []).length
+    ? data.datacenters.map(d => `<span class="tag">${d}</span>`).join(' ')
+    : '<span class="muted">لا توجد</span>';
+  document.querySelector('#excel-assets-table tbody').innerHTML = (data.assets || []).map(a => `
+    <tr>
+      <td>${a.row}</td><td>${a.datacenter}</td><td>${a.asset_type}</td>
+      <td>${a.name}</td><td>${a.ip_address}</td><td>${a.vendor || '—'}</td><td>${a.protocol || '—'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="7" style="text-align:center;color:var(--muted)">لا توجد أصول</td></tr>';
+  document.querySelector('#excel-links-table tbody').innerHTML = (data.links || []).map(l => `
+    <tr>
+      <td>${l.row}</td><td>${l.datacenter}</td>
+      <td>${l.from_name || l.from || '—'}</td><td>${l.to_name || l.to || '—'}</td><td>${l.label || '—'}</td>
+    </tr>
+  `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">لا توجد روابط</td></tr>';
+  document.getElementById('excel-apply-btn').disabled = !(data.assets?.length);
+}
+
+document.getElementById('excel-browse-btn')?.addEventListener('click', () => {
+  document.getElementById('excel-file-input').click();
+});
+
+document.getElementById('excel-file-input')?.addEventListener('change', (e) => {
+  setExcelFile(e.target.files[0]);
+});
+
+const excelDropzone = document.getElementById('excel-dropzone');
+excelDropzone?.addEventListener('dragover', (e) => {
+  e.preventDefault();
+  excelDropzone.classList.add('dragover');
+});
+excelDropzone?.addEventListener('dragleave', () => excelDropzone.classList.remove('dragover'));
+excelDropzone?.addEventListener('drop', (e) => {
+  e.preventDefault();
+  excelDropzone.classList.remove('dragover');
+  setExcelFile(e.dataTransfer.files[0]);
+});
+
+document.getElementById('download-excel-template')?.addEventListener('click', async () => {
+  try {
+    const blob = await api('/import/excel/template');
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dcms-import-template.xlsx';
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    document.getElementById('excel-status').textContent = err.message;
+  }
+});
+
+document.getElementById('excel-preview-btn')?.addEventListener('click', async () => {
+  if (!excelSelectedFile) return;
+  const statusEl = document.getElementById('excel-status');
+  statusEl.textContent = 'جاري التحليل...';
+  try {
+    const form = new FormData();
+    form.append('file', excelSelectedFile);
+    const data = await api('/import/excel/preview', { method: 'POST', body: form });
+    renderExcelPreview(data);
+    statusEl.textContent = 'تم التحليل — راجع المعاينة ثم أكّد الاستيراد';
+  } catch (err) {
+    statusEl.textContent = err.message;
+  }
+});
+
+document.getElementById('excel-apply-btn')?.addEventListener('click', async () => {
+  if (!excelSelectedFile) return;
+  if (!confirm('هل تريد استيراد الأصول وإنشاء/تحديث المخططات ومراكز البيانات؟')) return;
+  const statusEl = document.getElementById('excel-status');
+  statusEl.textContent = 'جاري الاستيراد...';
+  try {
+    const form = new FormData();
+    form.append('file', excelSelectedFile);
+    const skip = document.getElementById('excel-skip-existing').checked;
+    const data = await api(`/import/excel/apply?skip_existing=${skip}`, { method: 'POST', body: form });
+    statusEl.textContent = `تم الاستيراد: ${data.imported} أصل، ${data.skipped} متخطى، ${data.datacenters} مركز بيانات، ${data.maps_updated} مخطط`;
+    if (data.errors?.length) {
+      statusEl.textContent += ' — تحذيرات: ' + data.errors.join('; ');
+    }
+    await loadDashboard();
+  } catch (err) {
+    statusEl.textContent = err.message;
+  }
+});
 
 if (token) {
   initApp().catch(() => logout());

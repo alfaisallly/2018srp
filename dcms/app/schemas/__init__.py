@@ -330,3 +330,43 @@ class StoragePollResult(BaseModel):
 class MonitoringGuide(BaseModel):
     asset_type: str
     protocols: list[dict]
+
+
+class ExcelAssetPreview(BaseModel):
+    row: int
+    datacenter: str
+    asset_type: str
+    name: str
+    ip_address: str
+    vendor: str | None = None
+    protocol: str | None = None
+
+
+class ExcelLinkPreview(BaseModel):
+    row: int
+    datacenter: str
+    from_name: str = Field(alias="from")
+    to_name: str = Field(alias="to")
+    label: str | None = None
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class ExcelImportPreview(BaseModel):
+    summary: dict[str, int]
+    datacenters: list[str]
+    errors: list[str]
+    assets: list[ExcelAssetPreview]
+    links: list[ExcelLinkPreview]
+
+
+class ExcelApplyRequest(BaseModel):
+    skip_existing: bool = True
+
+
+class ExcelImportResult(BaseModel):
+    imported: int
+    skipped: int
+    datacenters: int
+    maps_updated: int
+    errors: list[str]

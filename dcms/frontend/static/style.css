@@ -299,3 +299,57 @@ th { color: var(--muted); font-weight: 500; }
 }
 
 #report-dc-selector { max-width: 300px; display: inline-block; margin-left: 1rem; }
+
+.import-hint { margin-bottom: 1rem; line-height: 1.6; }
+
+.import-dropzone {
+  border: 2px dashed var(--border);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: center;
+  margin-bottom: 1rem;
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.import-dropzone.dragover {
+  border-color: var(--primary);
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.import-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.import-skip {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: var(--muted);
+}
+
+.import-summary .stat-card { min-width: 120px; }
+
+.error-box {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid var(--danger);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  color: #fca5a5;
+}
+
+#excel-assets-table, #excel-links-table { margin-bottom: 1.5rem; }
+
+.tag {
+  display: inline-block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.2rem 0.6rem;
+  margin: 0.2rem;
+  font-size: 0.85rem;
+}

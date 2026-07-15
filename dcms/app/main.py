@@ -15,6 +15,7 @@ from app.api.datacenters import router as datacenters_router
 from app.api.devices import router as devices_router
 from app.api.network_maps import router as network_maps_router
 from app.api.reports import router as reports_router
+from app.api.import_data import router as import_router
 from sqlalchemy import text
 
 from app.config import get_settings
@@ -96,6 +97,7 @@ app.include_router(storage_router, prefix=api_prefix)
 app.include_router(network_maps_router, prefix=api_prefix)
 app.include_router(alerts_router, prefix=api_prefix)
 app.include_router(reports_router, prefix=api_prefix)
+app.include_router(import_router, prefix=api_prefix)
 
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if _frontend_dir.is_dir():
