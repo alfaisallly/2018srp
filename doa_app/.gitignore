@@ -1,0 +1,4 @@
+doa_app/build/
+doa_app/dist/
+doa_app/__pycache__/
+*.spec
