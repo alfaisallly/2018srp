@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DCMS - إدارة مراكز البيانات</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header>
+    <h1>DCMS — نظام إدارة مراكز البيانات</h1>
+    <div class="header-actions">
+      <div id="user-info"></div>
+      <button id="logout-btn" class="btn-secondary btn-logout hidden">خروج</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" data-panel="dashboard">لوحة التحكم</button>
+    <button class="nav-btn" data-panel="devices" data-perm="view">الشبكة</button>
+    <button class="nav-btn" data-panel="servers" data-perm="view">السيرفرات</button>
+    <button class="nav-btn" data-panel="storage" data-perm="view">التخزين</button>
+    <button class="nav-btn" data-panel="network-map" data-perm="view">خريطة الشبكة</button>
+    <button class="nav-btn" data-panel="alerts" data-perm="view">التنبيهات</button>
+    <button class="nav-btn" data-panel="reports" data-perm="view_reports">التقارير</button>
+    <button class="nav-btn" data-panel="import-excel" data-perm="manage_devices" id="nav-import">استيراد Excel</button>
+    <button class="nav-btn hidden" data-panel="users" data-perm="manage_users" id="nav-users">المستخدمين</button>
+  </nav>
+
+  <main>
+    <!-- Login -->
+    <section id="login-panel" class="panel">
+      <div class="card login-card">
+        <h2>تسجيل الدخول</h2>
+        <form id="login-form">
+          <label>اسم المستخدم<input type="text" id="username" required value="admin"></label>
+          <label>كلمة المرور<input type="password" id="password" required value="admin123"></label>
+          <button type="submit">دخول</button>
+        </form>
+        <p id="login-error" class="error"></p>
+      </div>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashboard-panel" class="panel hidden">
+      <div class="stats-grid" id="stats-grid"></div>
+      <div class="card">
+        <h2>مراكز البيانات</h2>
+        <div id="datacenters-list"></div>
+      </div>
+    </section>
+
+    <!-- Devices -->
+    <section id="devices-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>الأجهزة</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-device" class="btn-secondary">+ إضافة جهاز</button>
+            <button id="show-discover" class="btn-secondary">🔍 مسح الشبكة</button>
+            <button id="poll-all-devices">فحص الكل</button>
+            <button id="refresh-devices">تحديث</button>
+          </div>
+        </div>
+
+        <!-- Add Device Form -->
+        <div id="add-device-form" class="sub-form hidden">
+          <h3>إضافة جهاز جديد</h3>
+          <form id="device-create-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="dev-dc" required></select></label>
+              <label>الاسم<input type="text" id="dev-name" required placeholder="Core-SW-01"></label>
+              <label>Hostname<input type="text" id="dev-hostname" required placeholder="core-sw-01"></label>
+              <label>IP Address<input type="text" id="dev-ip" required placeholder="172.16.10.1"></label>
+              <label>المورّد
+                <select id="dev-vendor" required>
+                  <option value="cisco">Cisco</option>
+                  <option value="juniper">Juniper</option>
+                  <option value="fortinet">Fortinet</option>
+                </select>
+              </label>
+              <label>البروتوكول
+                <select id="dev-protocol" required>
+                  <option value="snmp">SNMP</option>
+                  <option value="ssh">SSH</option>
+                  <option value="netconf">NETCONF</option>
+                  <option value="rest">REST API</option>
+                </select>
+              </label>
+              <label id="lbl-community">Community (SNMP)<input type="text" id="dev-community" value="public"></label>
+              <label id="lbl-username" class="hidden">Username<input type="text" id="dev-username"></label>
+              <label id="lbl-password" class="hidden">Password<input type="password" id="dev-password"></label>
+              <label id="lbl-token" class="hidden">API Token<input type="text" id="dev-token"></label>
+              <label>Port<input type="number" id="dev-port" placeholder="تلقائي"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ وإضافة</button>
+              <button type="button" id="cancel-add-device" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+          <p id="add-device-msg" class="error"></p>
+        </div>
+
+        <!-- Network Discovery -->
+        <div id="discover-form" class="sub-form hidden">
+          <h3>مسح الشبكة (SNMP)</h3>
+          <form id="network-discover-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="disc-dc" required></select></label>
+              <label>نطاق CIDR<input type="text" id="disc-cidr" placeholder="172.16.10.0/24"></label>
+              <label>أو: IP البداية<input type="text" id="disc-start" placeholder="172.16.10.1"></label>
+              <label>IP النهاية<input type="text" id="disc-end" placeholder="172.16.10.50"></label>
+              <label>SNMP Community<input type="text" id="disc-community" value="public" required></label>
+              <label>Port<input type="number" id="disc-port" value="161"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">بدء المسح</button>
+              <button type="button" id="cancel-discover" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+          <p id="discover-status" class="muted"></p>
+          <div id="discover-results"></div>
+        </div>
+
+        <table id="devices-table">
+          <thead>
+            <tr>
+              <th>الاسم</th><th>IP</th><th>المورّد</th><th>الحالة</th><th>آخر ظهور</th><th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Servers -->
+    <section id="servers-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>السيرفرات</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-server" class="btn-secondary">+ إضافة سيرفر</button>
+            <button id="show-server-guide" class="btn-secondary">📋 دليل الدخول والفحص</button>
+            <button id="poll-all-servers">فحص الكل</button>
+            <button id="refresh-servers">تحديث</button>
+          </div>
+        </div>
+        <div id="server-guide" class="guide-box hidden"></div>
+        <div id="add-server-form" class="sub-form hidden">
+          <h3>إضافة سيرفر</h3>
+          <form id="server-create-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="srv-dc" required></select></label>
+              <label>الاسم<input type="text" id="srv-name" required></label>
+              <label>Hostname<input type="text" id="srv-hostname" required></label>
+              <label>IP<input type="text" id="srv-ip" required></label>
+              <label>نظام التشغيل
+                <select id="srv-os" required>
+                  <option value="linux">Linux</option>
+                  <option value="windows">Windows</option>
+                  <option value="vmware">VMware</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>الدور
+                <select id="srv-role">
+                  <option value="application">Application</option>
+                  <option value="database">Database</option>
+                  <option value="web">Web</option>
+                  <option value="hypervisor">Hypervisor</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>البروتوكول
+                <select id="srv-protocol" required>
+                  <option value="ssh">SSH (Linux)</option>
+                  <option value="winrm">WinRM (Windows)</option>
+                  <option value="snmp">SNMP</option>
+                  <option value="rest">REST (VMware)</option>
+                  <option value="ipmi">IPMI (BMC/iDRAC)</option>
+                </select>
+              </label>
+              <label id="srv-lbl-user">Username<input type="text" id="srv-username"></label>
+              <label id="srv-lbl-pass">Password<input type="password" id="srv-password"></label>
+              <label id="srv-lbl-community" class="hidden">Community<input type="text" id="srv-community" value="public"></label>
+              <label id="srv-lbl-token" class="hidden">API Token<input type="text" id="srv-token"></label>
+              <label>Port<input type="number" id="srv-port" placeholder="تلقائي"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ</button>
+              <button type="button" id="cancel-add-server" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="servers-table">
+          <thead><tr><th>الاسم</th><th>IP</th><th>OS</th><th>الدور</th><th>الحالة</th><th>آخر ظهور</th><th>إجراء</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Storage -->
+    <section id="storage-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>أنظمة التخزين</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-storage" class="btn-secondary">+ إضافة Storage</button>
+            <button id="show-storage-guide" class="btn-secondary">📋 دليل الدخول والفحص</button>
+            <button id="poll-all-storage">فحص الكل</button>
+            <button id="refresh-storage">تحديث</button>
+          </div>
+        </div>
+        <div id="storage-guide" class="guide-box hidden"></div>
+        <div id="add-storage-form" class="sub-form hidden">
+          <h3>إضافة نظام تخزين</h3>
+          <form id="storage-create-form">
+            <div class="form-grid">
+              <label>مركز البيانات<select id="sto-dc" required></select></label>
+              <label>الاسم<input type="text" id="sto-name" required></label>
+              <label>Hostname<input type="text" id="sto-hostname" required></label>
+              <label>IP<input type="text" id="sto-ip" required></label>
+              <label>المورّد
+                <select id="sto-vendor" required>
+                  <option value="pure_storage">Pure Storage</option>
+                  <option value="netapp">NetApp</option>
+                  <option value="dell_emc">Dell EMC</option>
+                  <option value="hpe">HPE</option>
+                  <option value="qnap">QNAP</option>
+                  <option value="synology">Synology</option>
+                  <option value="generic">Generic</option>
+                </select>
+              </label>
+              <label>الطراز<input type="text" id="sto-model" placeholder="FlashArray //R40"></label>
+              <label>النوع
+                <select id="sto-type">
+                  <option value="san">SAN</option>
+                  <option value="nas">NAS</option>
+                  <option value="object">Object</option>
+                  <option value="other">Other</option>
+                </select>
+              </label>
+              <label>البروتوكول
+                <select id="sto-protocol" required>
+                  <option value="rest">REST API (Pure Storage)</option>
+                  <option value="snmp">SNMP</option>
+                  <option value="ssh">SSH</option>
+                </select>
+              </label>
+              <label id="sto-lbl-community">Community<input type="text" id="sto-community" value="public"></label>
+              <label id="sto-lbl-user" class="hidden">Username<input type="text" id="sto-username"></label>
+              <label id="sto-lbl-pass" class="hidden">Password<input type="password" id="sto-password"></label>
+              <label id="sto-lbl-token" class="hidden">API Token<input type="text" id="sto-token"></label>
+              <label>Port<input type="number" id="sto-port" placeholder="تلقائي"></label>
+              <label>السعة (TB)<input type="number" step="0.1" id="sto-capacity"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ</button>
+              <button type="button" id="cancel-add-storage" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="storage-table">
+          <thead><tr><th>الاسم</th><th>IP</th><th>المورّد</th><th>السعة</th><th>الاستخدام</th><th>الحالة</th><th>إجراء</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Network Map -->
+    <section id="network-map-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>خريطة الشبكة</h2>
+          <select id="map-selector"></select>
+          <button id="refresh-map">تحديث الخريطة</button>
+        </div>
+        <div id="network-graph"></div>
+        <div id="map-legend">
+          <span class="legend-item"><span class="dot cisco"></span>Cisco</span>
+          <span class="legend-item"><span class="dot juniper"></span>Juniper</span>
+          <span class="legend-item"><span class="dot fortinet"></span>Fortinet</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Alerts -->
+    <section id="alerts-panel" class="panel hidden">
+      <div class="card">
+        <h2>التنبيهات</h2>
+        <table id="alerts-table">
+          <thead>
+            <tr><th>العنوان</th><th>الخطورة</th><th>الحالة</th><th>التاريخ</th><th>إجراء</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Reports -->
+    <section id="reports-panel" class="panel hidden">
+      <div class="card">
+        <h2>التقارير</h2>
+        <p>تصدير تقرير PDF/HTML لمركز بيانات:</p>
+        <select id="report-dc-selector"></select>
+        <button id="download-report">تحميل التقرير</button>
+      </div>
+    </section>
+
+    <!-- Excel Import -->
+    <section id="import-excel-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>استيراد من Excel</h2>
+          <div class="toolbar-actions">
+            <button id="download-excel-template" class="btn-secondary">📥 تحميل القالب</button>
+          </div>
+        </div>
+        <p class="muted import-hint">
+          ارفع ملف Excel (.xlsx) يحتوي على أجهزة الشبكة والسيرفرات والتخزين وعناوين IP.
+          سيتم تحليل الملف وعرض معاينة قبل الاستيراد، ثم إنشاء الأصول ومراكز البيانات ومخططات الشبكة تلقائياً.
+        </p>
+        <div class="import-dropzone" id="excel-dropzone">
+          <input type="file" id="excel-file-input" accept=".xlsx,.xls" hidden>
+          <p>اسحب ملف Excel هنا أو</p>
+          <button type="button" id="excel-browse-btn" class="btn-secondary">اختيار ملف</button>
+          <p id="excel-file-name" class="muted"></p>
+        </div>
+        <div class="form-actions import-actions">
+          <label class="import-skip">
+            <input type="checkbox" id="excel-skip-existing" checked>
+            تخطي الأصول الموجودة (نفس IP)
+          </label>
+          <button id="excel-preview-btn" disabled>معاينة</button>
+          <button id="excel-apply-btn" class="btn-primary" disabled>تأكيد الاستيراد</button>
+        </div>
+        <p id="excel-status" class="muted"></p>
+        <div id="excel-preview" class="hidden">
+          <div id="excel-summary" class="stats-grid import-summary"></div>
+          <div id="excel-errors" class="error-box hidden"></div>
+          <h3>مراكز البيانات</h3>
+          <div id="excel-dc-list"></div>
+          <h3>الأصول</h3>
+          <table id="excel-assets-table">
+            <thead>
+              <tr>
+                <th>صف</th><th>مركز البيانات</th><th>النوع</th><th>الاسم</th><th>IP</th><th>المورّد</th><th>البروتوكول</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <h3>روابط المخطط</h3>
+          <table id="excel-links-table">
+            <thead>
+              <tr><th>صف</th><th>مركز البيانات</th><th>من</th><th>إلى</th><th>الوصف</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Users Management -->
+    <section id="users-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>إدارة المستخدمين</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-user" class="btn-secondary">+ إضافة مستخدم</button>
+            <button id="refresh-users">تحديث</button>
+          </div>
+        </div>
+
+        <div id="add-user-form" class="sub-form hidden">
+          <h3 id="user-form-title">إضافة مستخدم</h3>
+          <form id="user-form">
+            <input type="hidden" id="user-edit-id">
+            <div class="form-grid">
+              <label>اسم المستخدم<input type="text" id="usr-username" required></label>
+              <label>البريد<input type="email" id="usr-email" required></label>
+              <label>الاسم الكامل<input type="text" id="usr-fullname"></label>
+              <label>كلمة المرور<input type="password" id="usr-password" minlength="8"></label>
+              <label>قالب الصلاحيات
+                <select id="usr-role-template">
+                  <option value="viewer">قراءة فقط</option>
+                  <option value="editor">قراءة وتعديل</option>
+                  <option value="operator">مشغّل</option>
+                  <option value="admin">مدير النظام</option>
+                  <option value="custom">مخصص</option>
+                </select>
+              </label>
+              <label>الحالة
+                <select id="usr-active">
+                  <option value="true">نشط</option>
+                  <option value="false">معطّل</option>
+                </select>
+              </label>
+            </div>
+            <div class="perm-section">
+              <h4>الصلاحيات التفصيلية</h4>
+              <div id="perm-checkboxes" class="perm-grid"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ</button>
+              <button type="button" id="cancel-user-form" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+        </div>
+
+        <table id="users-table">
+          <thead>
+            <tr>
+              <th>المستخدم</th><th>البريد</th><th>الدور</th><th>الصلاحيات</th><th>الحالة</th><th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
