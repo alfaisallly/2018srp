@@ -39,3 +39,18 @@ QT_QPA_PLATFORM=offscreen octave -q --eval "\
 - `codeFromNet/clscl_MUSIC.m` (classic MUSIC)
 - `myCode/SD_CPA.m` (sum-difference coprime-array spatial-smoothing MUSIC)
 - `codeByChunLinLiu` library via the `x_U` path (see caveat above)
+
+### `doa_app/` — desktop DOA Estimator (Python)
+`doa_app/` is a self-contained Python (Tkinter + matplotlib) port of the
+coarray-MUSIC `x_U` path, packaged as a Windows GUI app. Run from source with
+`python doa_app/doa_app.py` (needs `python3-tk`; deps in
+`doa_app/requirements.txt`). It is GUI, so run it on `DISPLAY=:1`.
+
+Building the Windows `.exe` on this Linux VM is done via Wine + a Windows Python
++ PyInstaller. **Gotcha:** the distro `wine` 9.0 package aborts on
+`ucrtbase.dll.crealf` when NumPy imports — install **WineHQ ≥ 11** (from the
+winehq apt repo) instead. Also, Windows-Python under Wine crashes with
+"init_sys_streams: can't initialize sys standard streams" when its stdout is
+redirected to a file; run it inside a real pty (e.g. a tmux pane) and capture
+the pane instead of using `> file`. On real Windows just run
+`doa_app/build_windows_exe.bat`.
