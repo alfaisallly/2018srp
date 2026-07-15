@@ -8,14 +8,13 @@ from app.core.security import require_permission
 from app.database import get_db
 from app.models import DataCenter, Permission, Rack, User
 from app.schemas import (
-    CombinedOverview,
     DataCenterCreate,
     DataCenterOverview,
     DataCenterResponse,
     RackCreate,
     RackResponse,
 )
-from app.services.datacenter_overview import get_combined_overview, get_datacenter_overview
+from app.services.datacenter_overview import get_datacenter_overview
 
 router = APIRouter(prefix="/datacenters", tags=["Data Centers"])
 
@@ -40,15 +39,6 @@ async def create_datacenter(
     await db.flush()
     await db.refresh(dc)
     return dc
-
-
-@router.get("/overview/combined", response_model=CombinedOverview)
-async def combined_overview(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    _: Annotated[User, Depends(require_permission(Permission.VIEW))],
-):
-    data = await get_combined_overview(db)
-    return CombinedOverview(**data)
 
 
 @router.get("/{datacenter_id}", response_model=DataCenterResponse)
