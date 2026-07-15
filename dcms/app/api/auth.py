@@ -5,6 +5,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.permissions import permissions_from_user, resolve_permissions
 from app.core.security import (
     authenticate_user,
     create_access_token,
@@ -14,7 +15,7 @@ from app.core.security import (
 )
 from app.database import get_db
 from app.models import Permission, User
-from app.schemas import TokenResponse, UserCreate, UserResponse
+from app.schemas import MeResponse, TokenResponse, UserCreate, UserResponse
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -41,12 +42,14 @@ async def register(
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="Username already exists")
 
+    perms = resolve_permissions(payload.role, payload.permissions)
     user = User(
         username=payload.username,
         email=payload.email,
         hashed_password=hash_password(payload.password),
         full_name=payload.full_name,
         role=payload.role,
+        permissions=perms,
     )
     db.add(user)
     await db.flush()
@@ -54,6 +57,15 @@ async def register(
     return user
 
 
-@router.get("/me", response_model=UserResponse)
+@router.get("/me", response_model=MeResponse)
 async def me(current_user: Annotated[User, Depends(get_current_user)]):
-    return current_user
+    perms = permissions_from_user(current_user)
+    return MeResponse(
+        **{k: getattr(current_user, k) for k in ("id", "username", "email", "full_name", "role", "permissions", "is_active", "created_at")},
+        permission_keys=[p.value for p in perms],
+    )
+
+
+@router.post("/logout")
+async def logout(current_user: Annotated[User, Depends(get_current_user)]):
+    return {"message": "تم تسجيل الخروج", "username": current_user.username}

@@ -1,6 +1,16 @@
 const API = '/api/v1';
 let token = localStorage.getItem('dcms_token');
 let network = null;
+let currentUser = null;
+let currentPermissions = new Set();
+
+const ROLE_LABELS = {
+  admin: 'مدير النظام',
+  editor: 'قراءة وتعديل',
+  operator: 'مشغّل',
+  viewer: 'قراءة فقط',
+  custom: 'مخصص',
+};
 
 const vendorColors = { cisco: '#049fd9', juniper: '#84bd00', fortinet: '#ee3124', generic: '#94a3b8' };
 const statusColors = { online: '#22c55e', offline: '#ef4444', degraded: '#eab308', unknown: '#64748b' };
@@ -24,9 +34,33 @@ async function api(path, options = {}) {
   return res.blob();
 }
 
+function hasPerm(perm) {
+  return currentPermissions.has(perm);
+}
+
+function applyPermissionsUI() {
+  document.querySelectorAll('[data-perm]').forEach(el => {
+    const perm = el.dataset.perm;
+    const allowed = hasPerm(perm);
+    el.classList.toggle('hidden', !allowed);
+  });
+  const canManage = (p) => hasPerm(p);
+  document.getElementById('show-add-device')?.classList.toggle('hidden', !canManage('manage_devices'));
+  document.getElementById('show-discover')?.classList.toggle('hidden', !canManage('manage_devices'));
+  document.getElementById('poll-all-devices')?.classList.toggle('hidden', !canManage('manage_devices'));
+  document.getElementById('show-add-server')?.classList.toggle('hidden', !canManage('manage_servers'));
+  document.getElementById('poll-all-servers')?.classList.toggle('hidden', !canManage('manage_servers'));
+  document.getElementById('show-add-storage')?.classList.toggle('hidden', !canManage('manage_storage'));
+  document.getElementById('poll-all-storage')?.classList.toggle('hidden', !canManage('manage_storage'));
+  document.getElementById('download-report')?.classList.toggle('hidden', !hasPerm('view_reports'));
+}
+
 function logout() {
   token = null;
+  currentUser = null;
+  currentPermissions = new Set();
   localStorage.removeItem('dcms_token');
+  document.getElementById('logout-btn')?.classList.add('hidden');
   showPanel('login');
 }
 
@@ -36,9 +70,11 @@ function showPanel(name) {
   if (name === 'login') {
     document.getElementById('login-panel').classList.remove('hidden');
     document.querySelector('nav').style.display = 'none';
+    document.getElementById('logout-btn')?.classList.add('hidden');
     return;
   }
   document.querySelector('nav').style.display = 'flex';
+  document.getElementById('logout-btn')?.classList.remove('hidden');
   document.getElementById(`${name}-panel`).classList.remove('hidden');
   document.querySelector(`[data-panel="${name}"]`)?.classList.add('active');
 }
@@ -71,13 +107,21 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (panel === 'network-map') loadNetworkMap();
     if (panel === 'alerts') loadAlerts();
     if (panel === 'reports') loadReportSelector();
+    if (panel === 'users') loadUsers();
     if (panel === 'dashboard') loadDashboard();
   });
 });
 
+document.getElementById('logout-btn')?.addEventListener('click', () => {
+  if (confirm('هل تريد تسجيل الخروج؟')) logout();
+});
+
 async function initApp() {
   const user = await api('/auth/me');
-  document.getElementById('user-info').textContent = `${user.full_name || user.username} (${user.role})`;
+  currentUser = user;
+  currentPermissions = new Set(user.permission_keys || []);
+  document.getElementById('user-info').textContent = `${user.full_name || user.username} (${ROLE_LABELS[user.role] || user.role})`;
+  applyPermissionsUI();
   showPanel('dashboard');
   await loadDashboard();
 }
@@ -557,6 +601,123 @@ document.getElementById('poll-all-storage').addEventListener('click', async () =
   loadStorage();
 });
 document.getElementById('refresh-storage').addEventListener('click', loadStorage);
+
+// ─── User Management ───
+let allPermissions = [];
+let roleTemplates = [];
+
+async function loadPermCheckboxes(selected = []) {
+  if (!allPermissions.length) allPermissions = await api('/users/permissions');
+  const container = document.getElementById('perm-checkboxes');
+  const groups = {};
+  allPermissions.forEach(p => {
+    if (!groups[p.group]) groups[p.group] = [];
+    groups[p.group].push(p);
+  });
+  container.innerHTML = Object.entries(groups).map(([group, perms]) => `
+    <div class="perm-group-title">${group}</div>
+    ${perms.map(p => `
+      <label title="${p.description}">
+        <input type="checkbox" class="perm-check" value="${p.key}" ${selected.includes(p.key) ? 'checked' : ''}>
+        <span>${p.label}</span>
+      </label>`).join('')}
+  `).join('');
+}
+
+function getSelectedPermissions() {
+  return [...document.querySelectorAll('.perm-check:checked')].map(c => c.value);
+}
+
+document.getElementById('usr-role-template').addEventListener('change', async (e) => {
+  const key = e.target.value;
+  if (!roleTemplates.length) roleTemplates = await api('/users/roles');
+  const tmpl = roleTemplates.find(r => r.key === key);
+  if (tmpl && key !== 'custom') await loadPermCheckboxes(tmpl.permissions);
+});
+
+document.getElementById('show-add-user').addEventListener('click', async () => {
+  document.getElementById('user-form-title').textContent = 'إضافة مستخدم';
+  document.getElementById('user-edit-id').value = '';
+  document.getElementById('user-form').reset();
+  document.getElementById('usr-password').required = true;
+  document.getElementById('usr-username').disabled = false;
+  await loadPermCheckboxes(['view', 'view_reports']);
+  document.getElementById('add-user-form').classList.remove('hidden');
+});
+
+document.getElementById('cancel-user-form').addEventListener('click', () => {
+  document.getElementById('add-user-form').classList.add('hidden');
+});
+
+async function loadUsers() {
+  if (!hasPerm('manage_users')) return;
+  const users = await api('/users');
+  const tbody = document.querySelector('#users-table tbody');
+  tbody.innerHTML = users.map(u => `
+    <tr>
+      <td><strong>${u.username}</strong><br><small>${u.full_name || ''}</small></td>
+      <td>${u.email}</td>
+      <td>${ROLE_LABELS[u.role] || u.role}</td>
+      <td>${(u.permissions || []).slice(0, 3).map(p => `<span class="badge-perm">${p}</span>`).join('')}${(u.permissions||[]).length > 3 ? ' +' + ((u.permissions||[]).length-3) : ''}</td>
+      <td class="${u.is_active ? 'badge-active' : 'badge-inactive'}">${u.is_active ? 'نشط' : 'معطّل'}</td>
+      <td>
+        <button class="btn-sm" onclick="editUser(${u.id})">تعديل</button>
+        ${u.id !== currentUser?.id ? `<button class="btn-sm btn-secondary" onclick="deleteUser(${u.id})">حذف</button>` : ''}
+      </td>
+    </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">لا مستخدمين</td></tr>';
+}
+
+async function editUser(id) {
+  const u = await api(`/users/${id}`);
+  document.getElementById('user-form-title').textContent = 'تعديل مستخدم';
+  document.getElementById('user-edit-id').value = id;
+  document.getElementById('usr-username').value = u.username;
+  document.getElementById('usr-username').disabled = true;
+  document.getElementById('usr-email').value = u.email;
+  document.getElementById('usr-fullname').value = u.full_name || '';
+  document.getElementById('usr-password').value = '';
+  document.getElementById('usr-password').required = false;
+  document.getElementById('usr-role-template').value = u.role;
+  document.getElementById('usr-active').value = String(u.is_active);
+  await loadPermCheckboxes(u.permissions || []);
+  document.getElementById('add-user-form').classList.remove('hidden');
+}
+
+async function deleteUser(id) {
+  if (!confirm('حذف هذا المستخدم؟')) return;
+  await api(`/users/${id}`, { method: 'DELETE' });
+  loadUsers();
+}
+
+document.getElementById('user-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const editId = document.getElementById('user-edit-id').value;
+  const role = document.getElementById('usr-role-template').value;
+  const perms = getSelectedPermissions();
+  const body = {
+    email: document.getElementById('usr-email').value,
+    full_name: document.getElementById('usr-fullname').value || null,
+    role,
+    permissions: role === 'custom' ? perms : perms,
+    is_active: document.getElementById('usr-active').value === 'true',
+  };
+  const pwd = document.getElementById('usr-password').value;
+  if (pwd) body.password = pwd;
+
+  try {
+    if (editId) {
+      await api(`/users/${editId}`, { method: 'PUT', body });
+    } else {
+      body.username = document.getElementById('usr-username').value;
+      body.password = pwd;
+      await api('/users', { method: 'POST', body });
+    }
+    document.getElementById('add-user-form').classList.add('hidden');
+    loadUsers();
+  } catch (err) { alert(err.message); }
+});
+
+document.getElementById('refresh-users').addEventListener('click', loadUsers);
 
 if (token) {
   initApp().catch(() => logout());

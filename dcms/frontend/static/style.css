@@ -34,6 +34,65 @@ header {
 
 header h1 { font-size: 1.25rem; }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.btn-logout {
+  padding: 0.4rem 1rem;
+  font-size: 0.9rem;
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.btn-logout:hover { background: var(--danger); color: white; }
+
+.perm-section { margin-top: 1rem; }
+
+.perm-section h4 { margin-bottom: 0.75rem; color: var(--primary); }
+
+.perm-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 0.5rem;
+}
+
+.perm-grid label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.perm-grid input { width: auto; margin-top: 0.2rem; }
+
+.perm-group-title {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.25rem;
+}
+
+.badge-active { color: var(--success); }
+.badge-inactive { color: var(--danger); }
+
+.badge-perm {
+  display: inline-block;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.1rem 0.4rem;
+  font-size: 0.75rem;
+  margin: 0.1rem;
+}
+
 nav {
   display: flex;
   gap: 0.5rem;

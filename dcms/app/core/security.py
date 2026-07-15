@@ -9,8 +9,9 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
+from app.core.permissions import permissions_from_user
 from app.database import get_db
-from app.models import Permission, ROLE_PERMISSIONS, User
+from app.models import Permission, User
 
 settings = get_settings()
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -69,8 +70,7 @@ async def get_current_user(
 
 
 def user_has_permission(user: User, permission: Permission) -> bool:
-    allowed = ROLE_PERMISSIONS.get(user.role, set())
-    return permission in allowed
+    return permission in permissions_from_user(user)
 
 
 def require_permission(permission: Permission):

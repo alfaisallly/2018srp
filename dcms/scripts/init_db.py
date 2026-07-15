@@ -12,6 +12,7 @@ from app.models import (
     Device,
     DeviceCredential,
     NetworkMap,
+    Permission,
     ProtocolType,
     Server,
     ServerCredential,
@@ -44,7 +45,7 @@ DC_MOI = {
 
 async def migrate_schema(conn) -> None:
     migrations = [
-        "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS server_id INTEGER",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB",
         "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS storage_id INTEGER",
         "ALTER TABLE storage_systems ADD COLUMN IF NOT EXISTS model VARCHAR(128)",
         "ALTER TYPE storagevendor ADD VALUE IF NOT EXISTS 'pure_storage'",
@@ -345,7 +346,8 @@ async def init_db():
 
     async with AsyncSessionLocal() as session:
         result = await session.execute(select(User).where(User.username == "admin"))
-        if not result.scalar_one_or_none():
+        admin = result.scalar_one_or_none()
+        if not admin:
             session.add(
                 User(
                     username="admin",
@@ -353,9 +355,13 @@ async def init_db():
                     hashed_password=hash_password("admin123"),
                     full_name="مدير النظام",
                     role="admin",
+                    permissions=[p.value for p in Permission],
                 )
             )
             print("Created admin user: admin / admin123")
+        elif not admin.permissions:
+            admin.permissions = [p.value for p in Permission]
+            print("Updated admin permissions")
 
         await cleanup_legacy_data(session)
         await seed_datacenter(session, DC_MOROOR, MOROOR_ASSETS)

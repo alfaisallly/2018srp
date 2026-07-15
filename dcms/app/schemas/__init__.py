@@ -16,6 +16,17 @@ class UserCreate(BaseModel):
     password: str = Field(min_length=8)
     full_name: str | None = None
     role: str = "viewer"
+    permissions: list[str] | None = None
+    is_active: bool = True
+
+
+class UserUpdate(BaseModel):
+    email: EmailStr | None = None
+    password: str | None = Field(default=None, min_length=8)
+    full_name: str | None = None
+    role: str | None = None
+    permissions: list[str] | None = None
+    is_active: bool | None = None
 
 
 class UserResponse(BaseModel):
@@ -26,8 +37,26 @@ class UserResponse(BaseModel):
     email: str
     full_name: str | None
     role: str
+    permissions: list[str] | None = None
     is_active: bool
     created_at: datetime
+
+
+class PermissionInfo(BaseModel):
+    key: str
+    label: str
+    group: str
+    description: str
+
+
+class RoleTemplate(BaseModel):
+    key: str
+    label: str
+    permissions: list[str]
+
+
+class MeResponse(UserResponse):
+    permission_keys: list[str] = []
 
 
 class DataCenterCreate(BaseModel):

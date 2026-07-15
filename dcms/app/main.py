@@ -6,6 +6,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
+from app.api.users import router as users_router
 from app.api.servers import router as servers_router
 from app.api.storage import router as storage_router
 from app.api.alerts import router as alerts_router
@@ -40,6 +41,16 @@ async def scheduled_poll():
 
 
 async def _migrate_enums(conn):
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB",
+        "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS server_id INTEGER",
+        "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS storage_id INTEGER",
+    ]
+    for stmt in migrations:
+        try:
+            await conn.execute(text(stmt))
+        except Exception:
+            pass
     for val in ("ipmi", "winrm"):
         try:
             await conn.execute(text(f"ALTER TYPE protocoltype ADD VALUE IF NOT EXISTS '{val}'"))
@@ -77,6 +88,7 @@ app.add_middleware(
 
 api_prefix = "/api/v1"
 app.include_router(auth_router, prefix=api_prefix)
+app.include_router(users_router, prefix=api_prefix)
 app.include_router(datacenters_router, prefix=api_prefix)
 app.include_router(devices_router, prefix=api_prefix)
 app.include_router(servers_router, prefix=api_prefix)

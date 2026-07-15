@@ -10,17 +10,21 @@
 <body>
   <header>
     <h1>DCMS — نظام إدارة مراكز البيانات</h1>
-    <div id="user-info"></div>
+    <div class="header-actions">
+      <div id="user-info"></div>
+      <button id="logout-btn" class="btn-secondary btn-logout hidden">خروج</button>
+    </div>
   </header>
 
   <nav>
     <button class="nav-btn active" data-panel="dashboard">لوحة التحكم</button>
-    <button class="nav-btn" data-panel="devices">الشبكة</button>
-    <button class="nav-btn" data-panel="servers">السيرفرات</button>
-    <button class="nav-btn" data-panel="storage">التخزين</button>
-    <button class="nav-btn" data-panel="network-map">خريطة الشبكة</button>
-    <button class="nav-btn" data-panel="alerts">التنبيهات</button>
-    <button class="nav-btn" data-panel="reports">التقارير</button>
+    <button class="nav-btn" data-panel="devices" data-perm="view">الشبكة</button>
+    <button class="nav-btn" data-panel="servers" data-perm="view">السيرفرات</button>
+    <button class="nav-btn" data-panel="storage" data-perm="view">التخزين</button>
+    <button class="nav-btn" data-panel="network-map" data-perm="view">خريطة الشبكة</button>
+    <button class="nav-btn" data-panel="alerts" data-perm="view">التنبيهات</button>
+    <button class="nav-btn" data-panel="reports" data-perm="view_reports">التقارير</button>
+    <button class="nav-btn hidden" data-panel="users" data-perm="manage_users" id="nav-users">المستخدمين</button>
   </nav>
 
   <main>
@@ -300,6 +304,64 @@
         <p>تصدير تقرير PDF/HTML لمركز بيانات:</p>
         <select id="report-dc-selector"></select>
         <button id="download-report">تحميل التقرير</button>
+      </div>
+    </section>
+
+    <!-- Users Management -->
+    <section id="users-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>إدارة المستخدمين</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-user" class="btn-secondary">+ إضافة مستخدم</button>
+            <button id="refresh-users">تحديث</button>
+          </div>
+        </div>
+
+        <div id="add-user-form" class="sub-form hidden">
+          <h3 id="user-form-title">إضافة مستخدم</h3>
+          <form id="user-form">
+            <input type="hidden" id="user-edit-id">
+            <div class="form-grid">
+              <label>اسم المستخدم<input type="text" id="usr-username" required></label>
+              <label>البريد<input type="email" id="usr-email" required></label>
+              <label>الاسم الكامل<input type="text" id="usr-fullname"></label>
+              <label>كلمة المرور<input type="password" id="usr-password" minlength="8"></label>
+              <label>قالب الصلاحيات
+                <select id="usr-role-template">
+                  <option value="viewer">قراءة فقط</option>
+                  <option value="editor">قراءة وتعديل</option>
+                  <option value="operator">مشغّل</option>
+                  <option value="admin">مدير النظام</option>
+                  <option value="custom">مخصص</option>
+                </select>
+              </label>
+              <label>الحالة
+                <select id="usr-active">
+                  <option value="true">نشط</option>
+                  <option value="false">معطّل</option>
+                </select>
+              </label>
+            </div>
+            <div class="perm-section">
+              <h4>الصلاحيات التفصيلية</h4>
+              <div id="perm-checkboxes" class="perm-grid"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit">حفظ</button>
+              <button type="button" id="cancel-user-form" class="btn-secondary">إلغاء</button>
+            </div>
+          </form>
+        </div>
+
+        <table id="users-table">
+          <thead>
+            <tr>
+              <th>المستخدم</th><th>البريد</th><th>الدور</th><th>الصلاحيات</th><th>الحالة</th><th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
       </div>
     </section>
   </main>
