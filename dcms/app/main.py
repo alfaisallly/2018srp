@@ -16,6 +16,7 @@ from app.api.devices import router as devices_router
 from app.api.network_maps import router as network_maps_router
 from app.api.reports import router as reports_router
 from app.api.import_data import router as import_router
+from app.api.sensors import router as sensors_router
 from sqlalchemy import text
 
 from app.config import get_settings
@@ -24,6 +25,7 @@ from app.models import Base
 from app.services.device_monitor import poll_all_devices
 from app.services.server_monitor import poll_all_servers
 from app.services.storage_monitor import poll_all_storage
+from app.services.sensor_engine import seed_all_sensors
 
 settings = get_settings()
 scheduler = AsyncIOScheduler()
@@ -46,6 +48,7 @@ async def _migrate_enums(conn):
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS permissions JSONB",
         "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS server_id INTEGER",
         "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS storage_id INTEGER",
+        "ALTER TABLE alerts ADD COLUMN IF NOT EXISTS sensor_id INTEGER",
     ]
     for stmt in migrations:
         try:
@@ -64,6 +67,13 @@ async def lifespan(app: FastAPI):
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
         await _migrate_enums(conn)
+
+    async with AsyncSessionLocal() as session:
+        try:
+            await seed_all_sensors(session)
+            await session.commit()
+        except Exception:
+            await session.rollback()
 
     scheduler.add_job(scheduled_poll, "interval", seconds=settings.poll_interval_seconds, id="device_poll")
     scheduler.start()
@@ -98,6 +108,7 @@ app.include_router(network_maps_router, prefix=api_prefix)
 app.include_router(alerts_router, prefix=api_prefix)
 app.include_router(reports_router, prefix=api_prefix)
 app.include_router(import_router, prefix=api_prefix)
+app.include_router(sensors_router, prefix=api_prefix)
 
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if _frontend_dir.is_dir():

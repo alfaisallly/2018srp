@@ -5,16 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
-    Alert,
-    AlertSeverity,
-    AlertStatus,
     Device,
-    DeviceCredential,
     DeviceMetric,
     DeviceStatus,
     ProtocolType,
-    VendorType,
+    SensorAssetType,
 )
+from app.services.sensor_engine import mark_asset_sensors_down, process_sensor_metrics
 from app.vendors import get_vendor_adapter
 
 
@@ -71,6 +68,7 @@ async def poll_device(db: AsyncSession, device_id: int) -> dict:
         if info.serial_number:
             device.serial_number = info.serial_number
 
+        metrics_dict: dict[str, tuple[float, str | None]] = {"reachable": (1.0, "bool")}
         for metric in metrics:
             db.add(
                 DeviceMetric(
@@ -80,70 +78,30 @@ async def poll_device(db: AsyncSession, device_id: int) -> dict:
                     unit=metric.unit,
                 )
             )
+            metrics_dict[metric.name] = (metric.value, metric.unit)
 
-        await _check_thresholds(db, device, metrics)
+        await process_sensor_metrics(
+            db,
+            asset_type=SensorAssetType.DEVICE,
+            asset_id=device.id,
+            datacenter_id=device.datacenter_id,
+            asset_name=device.name,
+            metrics=metrics_dict,
+        )
         await db.flush()
         return {"success": True, "protocol": protocol_used, "hostname": info.hostname}
 
     device.status = DeviceStatus.OFFLINE
-    await db.flush()
-    await _create_alert(
+    await mark_asset_sensors_down(
         db,
-        device,
-        title=f"Device unreachable: {device.name}",
+        asset_type=SensorAssetType.DEVICE,
+        asset_id=device.id,
+        datacenter_id=device.datacenter_id,
+        asset_name=device.name,
         message=error or "All configured protocols failed",
-        severity=AlertSeverity.CRITICAL,
     )
+    await db.flush()
     return {"success": False, "error": error or "All protocols failed"}
-
-
-async def _check_thresholds(db: AsyncSession, device: Device, metrics: list) -> None:
-    for metric in metrics:
-        if metric.name == "cpu_utilization" and metric.value > 90:
-            await _create_alert(
-                db,
-                device,
-                title=f"High CPU on {device.name}",
-                message=f"CPU utilization is {metric.value}%",
-                severity=AlertSeverity.WARNING,
-            )
-        if metric.name == "memory_usage" and metric.value > 90:
-            await _create_alert(
-                db,
-                device,
-                title=f"High memory on {device.name}",
-                message=f"Memory usage is {metric.value}%",
-                severity=AlertSeverity.WARNING,
-            )
-
-
-async def _create_alert(
-    db: AsyncSession,
-    device: Device,
-    title: str,
-    message: str,
-    severity: AlertSeverity,
-) -> None:
-    existing = await db.execute(
-        select(Alert).where(
-            Alert.device_id == device.id,
-            Alert.title == title,
-            Alert.status.in_([AlertStatus.OPEN, AlertStatus.ACKNOWLEDGED]),
-        )
-    )
-    if existing.scalar_one_or_none():
-        return
-
-    db.add(
-        Alert(
-            device_id=device.id,
-            datacenter_id=device.datacenter_id,
-            title=title,
-            message=message,
-            severity=severity,
-            source="monitor",
-        )
-    )
 
 
 async def poll_all_devices(db: AsyncSession) -> dict:

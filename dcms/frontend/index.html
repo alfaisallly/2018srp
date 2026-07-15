@@ -22,6 +22,7 @@
     <button class="nav-btn" data-panel="servers" data-perm="view">السيرفرات</button>
     <button class="nav-btn" data-panel="storage" data-perm="view">التخزين</button>
     <button class="nav-btn" data-panel="network-map" data-perm="view">خريطة الشبكة</button>
+    <button class="nav-btn" data-panel="sensors" data-perm="view">الحساسات</button>
     <button class="nav-btn" data-panel="alerts" data-perm="view">التنبيهات</button>
     <button class="nav-btn" data-panel="reports" data-perm="view_reports">التقارير</button>
     <button class="nav-btn" data-panel="import-excel" data-perm="manage_devices" id="nav-import">استيراد Excel</button>
@@ -285,13 +286,81 @@
       </div>
     </section>
 
+    <!-- Sensors (PRTG-style) -->
+    <section id="sensors-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2>مراقبة الحساسات</h2>
+          <div class="toolbar-actions">
+            <select id="sensor-dc-filter"><option value="">كل المراكز</option></select>
+            <select id="sensor-status-filter">
+              <option value="">كل الحالات</option>
+              <option value="up">طبيعي</option>
+              <option value="warning">تحذير</option>
+              <option value="down">تعطل</option>
+              <option value="paused">موقوف</option>
+              <option value="unknown">غير معروف</option>
+            </select>
+            <button id="refresh-sensors">تحديث</button>
+            <button id="seed-sensors" class="btn-secondary hidden">إنشاء حساسات افتراضية</button>
+          </div>
+        </div>
+        <div id="sensor-summary-bar" class="sensor-summary-bar"></div>
+        <div class="sensor-legend">
+          <span><span class="sensor-dot up"></span>طبيعي</span>
+          <span><span class="sensor-dot warning"></span>تحذير</span>
+          <span><span class="sensor-dot down"></span>تعطل</span>
+          <span><span class="sensor-dot paused"></span>موقوف</span>
+          <span><span class="sensor-dot unknown"></span>غير معروف</span>
+        </div>
+        <table id="sensors-table">
+          <thead>
+            <tr>
+              <th></th><th>الحساس</th><th>الأصل</th><th>النوع</th><th>القيمة</th>
+              <th>تحذير</th><th>خطأ</th><th>الحالة</th><th>آخر فحص</th><th>إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="sensor-detail" class="card hidden">
+        <div class="toolbar">
+          <h3 id="sensor-detail-title">تفاصيل الحساس</h3>
+          <button id="close-sensor-detail" class="btn-secondary">إغلاق</button>
+        </div>
+        <form id="sensor-edit-form" class="form-grid">
+          <input type="hidden" id="sensor-edit-id">
+          <label>الاسم<input type="text" id="sensor-edit-name"></label>
+          <label>حد التحذير<input type="number" step="0.1" id="sensor-edit-warning"></label>
+          <label>حد الخطأ<input type="number" step="0.1" id="sensor-edit-error"></label>
+          <label>الاتجاه
+            <select id="sensor-edit-direction">
+              <option value="true">أعلى = أسوأ</option>
+              <option value="false">أقل = أسوأ</option>
+            </select>
+          </label>
+          <label>مفعّل
+            <select id="sensor-edit-enabled">
+              <option value="true">نعم</option>
+              <option value="false">لا</option>
+            </select>
+          </label>
+        </form>
+        <div class="form-actions">
+          <button id="save-sensor-btn">حفظ الحدود</button>
+        </div>
+        <h4>السجل (آخر القيم)</h4>
+        <div id="sensor-history-chart" class="sensor-history"></div>
+      </div>
+    </section>
+
     <!-- Alerts -->
     <section id="alerts-panel" class="panel hidden">
       <div class="card">
         <h2>التنبيهات</h2>
         <table id="alerts-table">
           <thead>
-            <tr><th>العنوان</th><th>الخطورة</th><th>الحالة</th><th>التاريخ</th><th>إجراء</th></tr>
+            <tr><th>العنوان</th><th>الخطورة</th><th>الحالة</th><th>المصدر</th><th>التاريخ</th><th>إجراء</th></tr>
           </thead>
           <tbody></tbody>
         </table>

@@ -160,12 +160,15 @@ class AlertResponse(BaseModel):
 
     id: int
     device_id: int | None
+    server_id: int | None = None
+    storage_id: int | None = None
+    sensor_id: int | None = None
     datacenter_id: int | None
     title: str
     message: str
     severity: AlertSeverity
     status: AlertStatus
-    source: str
+    source: str = "system"
     created_at: datetime
     resolved_at: datetime | None
 
@@ -185,6 +188,10 @@ class DashboardStats(BaseModel):
     online_storage: int = 0
     open_alerts: int
     critical_alerts: int
+    total_sensors: int = 0
+    sensors_up: int = 0
+    sensors_warning: int = 0
+    sensors_down: int = 0
 
 
 class PollResult(BaseModel):
@@ -370,3 +377,59 @@ class ExcelImportResult(BaseModel):
     datacenters: int
     maps_updated: int
     errors: list[str]
+
+
+class SensorResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    datacenter_id: int
+    asset_type: str
+    asset_id: int
+    asset_name: str | None = None
+    device_id: int | None = None
+    server_id: int | None = None
+    storage_id: int | None = None
+    name: str
+    metric_key: str
+    unit: str | None = None
+    warning_limit: float | None = None
+    error_limit: float | None = None
+    higher_is_worse: bool = True
+    enabled: bool = True
+    last_value: float | None = None
+    last_status: str
+    last_message: str | None = None
+    last_check_at: datetime | None = None
+    status_color: str
+    status_label: str
+    created_at: datetime
+
+
+class SensorUpdate(BaseModel):
+    name: str | None = None
+    warning_limit: float | None = None
+    error_limit: float | None = None
+    higher_is_worse: bool | None = None
+    enabled: bool | None = None
+    unit: str | None = None
+
+
+class SensorSummary(BaseModel):
+    total: int = 0
+    up: int = 0
+    warning: int = 0
+    down: int = 0
+    paused: int = 0
+    unknown: int = 0
+
+
+class SensorHistoryPoint(BaseModel):
+    value: float
+    unit: str | None = None
+    collected_at: datetime
+
+
+class SensorTemplatesResponse(BaseModel):
+    templates: dict
+    status_colors: dict

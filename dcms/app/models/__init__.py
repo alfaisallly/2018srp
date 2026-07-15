@@ -90,6 +90,20 @@ class AlertStatus(str, enum.Enum):
     RESOLVED = "resolved"
 
 
+class SensorAssetType(str, enum.Enum):
+    DEVICE = "device"
+    SERVER = "server"
+    STORAGE = "storage"
+
+
+class SensorStatus(str, enum.Enum):
+    UP = "up"
+    WARNING = "warning"
+    DOWN = "down"
+    PAUSED = "paused"
+    UNKNOWN = "unknown"
+
+
 class Permission(str, enum.Enum):
     VIEW = "view"
     MANAGE_DEVICES = "manage_devices"
@@ -194,6 +208,11 @@ class Device(Base):
     )
     metrics: Mapped[list["DeviceMetric"]] = relationship(back_populates="device", cascade="all, delete-orphan")
     alerts: Mapped[list["Alert"]] = relationship(back_populates="device")
+    sensors: Mapped[list["Sensor"]] = relationship(
+        back_populates="device",
+        foreign_keys="Sensor.device_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class DeviceCredential(Base):
@@ -251,6 +270,11 @@ class Server(Base):
     )
     metrics: Mapped[list["ServerMetric"]] = relationship(back_populates="server", cascade="all, delete-orphan")
     alerts: Mapped[list["Alert"]] = relationship(back_populates="server")
+    sensors: Mapped[list["Sensor"]] = relationship(
+        back_populates="server",
+        foreign_keys="Sensor.server_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class ServerCredential(Base):
@@ -309,6 +333,11 @@ class StorageSystem(Base):
     )
     metrics: Mapped[list["StorageMetric"]] = relationship(back_populates="storage", cascade="all, delete-orphan")
     alerts: Mapped[list["Alert"]] = relationship(back_populates="storage")
+    sensors: Mapped[list["Sensor"]] = relationship(
+        back_populates="storage",
+        foreign_keys="Sensor.storage_id",
+        cascade="all, delete-orphan",
+    )
 
 
 class StorageCredential(Base):
@@ -356,6 +385,40 @@ class NetworkMap(Base):
     datacenter: Mapped["DataCenter"] = relationship(back_populates="network_maps")
 
 
+class Sensor(Base):
+    __tablename__ = "sensors"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datacenter_id: Mapped[int] = mapped_column(ForeignKey("datacenters.id", ondelete="CASCADE"), index=True)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    server_id: Mapped[int | None] = mapped_column(ForeignKey("servers.id", ondelete="CASCADE"), index=True)
+    storage_id: Mapped[int | None] = mapped_column(ForeignKey("storage_systems.id", ondelete="CASCADE"), index=True)
+    asset_type: Mapped[SensorAssetType] = mapped_column(Enum(SensorAssetType))
+    name: Mapped[str] = mapped_column(String(128))
+    metric_key: Mapped[str] = mapped_column(String(128), index=True)
+    unit: Mapped[str | None] = mapped_column(String(32))
+    warning_limit: Mapped[float | None] = mapped_column(Float)
+    error_limit: Mapped[float | None] = mapped_column(Float)
+    higher_is_worse: Mapped[bool] = mapped_column(Boolean, default=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    last_value: Mapped[float | None] = mapped_column(Float)
+    last_status: Mapped[SensorStatus] = mapped_column(Enum(SensorStatus), default=SensorStatus.UNKNOWN)
+    last_message: Mapped[str | None] = mapped_column(String(255))
+    last_check_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    device: Mapped["Device | None"] = relationship(back_populates="sensors", foreign_keys=[device_id])
+    server: Mapped["Server | None"] = relationship(back_populates="sensors", foreign_keys=[server_id])
+    storage: Mapped["StorageSystem | None"] = relationship(back_populates="sensors", foreign_keys=[storage_id])
+    alerts: Mapped[list["Alert"]] = relationship(back_populates="sensor")
+
+    __table_args__ = (
+        UniqueConstraint("device_id", "metric_key", name="uq_sensor_device_metric"),
+        UniqueConstraint("server_id", "metric_key", name="uq_sensor_server_metric"),
+        UniqueConstraint("storage_id", "metric_key", name="uq_sensor_storage_metric"),
+    )
+
+
 class Alert(Base):
     __tablename__ = "alerts"
 
@@ -363,6 +426,7 @@ class Alert(Base):
     device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"))
     server_id: Mapped[int | None] = mapped_column(ForeignKey("servers.id", ondelete="SET NULL"))
     storage_id: Mapped[int | None] = mapped_column(ForeignKey("storage_systems.id", ondelete="SET NULL"))
+    sensor_id: Mapped[int | None] = mapped_column(ForeignKey("sensors.id", ondelete="SET NULL"), index=True)
     datacenter_id: Mapped[int | None] = mapped_column(ForeignKey("datacenters.id", ondelete="SET NULL"))
     title: Mapped[str] = mapped_column(String(255))
     message: Mapped[str] = mapped_column(Text)
@@ -376,6 +440,7 @@ class Alert(Base):
     device: Mapped["Device | None"] = relationship(back_populates="alerts")
     server: Mapped["Server | None"] = relationship(back_populates="alerts")
     storage: Mapped["StorageSystem | None"] = relationship(back_populates="alerts")
+    sensor: Mapped["Sensor | None"] = relationship(back_populates="alerts")
 
 
 class AuditLog(Base):

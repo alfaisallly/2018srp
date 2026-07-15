@@ -53,6 +53,7 @@ function applyPermissionsUI() {
   document.getElementById('show-add-storage')?.classList.toggle('hidden', !canManage('manage_storage'));
   document.getElementById('poll-all-storage')?.classList.toggle('hidden', !canManage('manage_storage'));
   document.getElementById('download-report')?.classList.toggle('hidden', !hasPerm('view_reports'));
+  document.getElementById('seed-sensors')?.classList.toggle('hidden', !canManage('manage_devices'));
 }
 
 function logout() {
@@ -105,6 +106,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (panel === 'servers') loadServers();
     if (panel === 'storage') loadStorage();
     if (panel === 'network-map') loadNetworkMap();
+    if (panel === 'sensors') loadSensors();
     if (panel === 'alerts') loadAlerts();
     if (panel === 'reports') loadReportSelector();
     if (panel === 'users') loadUsers();
@@ -139,6 +141,10 @@ async function loadDashboard() {
     <div class="stat-card"><div class="value status-online">${stats.online_storage || 0}</div><div class="label">تخزين متصل</div></div>
     <div class="stat-card"><div class="value">${stats.open_alerts}</div><div class="label">تنبيهات مفتوحة</div></div>
     <div class="stat-card"><div class="value severity-critical">${stats.critical_alerts}</div><div class="label">حرجة</div></div>
+    <div class="stat-card"><div class="value">${stats.total_sensors || 0}</div><div class="label">الحساسات</div></div>
+    <div class="stat-card"><div class="value sensor-status-up">${stats.sensors_up || 0}</div><div class="label">حساسات طبيعية</div></div>
+    <div class="stat-card"><div class="value sensor-status-warning">${stats.sensors_warning || 0}</div><div class="label">تحذير</div></div>
+    <div class="stat-card"><div class="value sensor-status-down">${stats.sensors_down || 0}</div><div class="label">تعطل</div></div>
   `;
   const dcs = await api('/datacenters');
   document.getElementById('datacenters-list').innerHTML = dcs.length
@@ -392,10 +398,19 @@ async function loadAlerts() {
       <td>${a.title}</td>
       <td class="severity-${a.severity}">${a.severity}</td>
       <td>${a.status}</td>
+      <td>${a.source || '—'}</td>
       <td>${new Date(a.created_at).toLocaleString('ar')}</td>
-      <td>${a.status === 'open' ? `<button class="btn-sm" onclick="resolveAlert(${a.id})">حل</button>` : '—'}</td>
+      <td>
+        ${a.status === 'open' && hasPerm('manage_alerts') ? `<button class="btn-sm" onclick="ackAlert(${a.id})">اعتماد</button> ` : ''}
+        ${a.status !== 'resolved' && hasPerm('manage_alerts') ? `<button class="btn-sm" onclick="resolveAlert(${a.id})">حل</button>` : '—'}
+      </td>
     </tr>
-  `).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--muted)">لا توجد تنبيهات</td></tr>';
+  `).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--muted)">لا توجد تنبيهات</td></tr>';
+}
+
+async function ackAlert(id) {
+  await api(`/alerts/${id}`, { method: 'PATCH', body: { status: 'acknowledged' } });
+  loadAlerts();
 }
 
 async function resolveAlert(id) {
@@ -719,6 +734,116 @@ document.getElementById('user-form').addEventListener('submit', async (e) => {
 });
 
 document.getElementById('refresh-users').addEventListener('click', loadUsers);
+
+// --- Sensors (PRTG-style) ---
+const ASSET_TYPE_LABELS = { device: 'شبكة', server: 'سيرفر', storage: 'تخزين' };
+
+async function loadSensors() {
+  const dcId = document.getElementById('sensor-dc-filter').value;
+  const status = document.getElementById('sensor-status-filter').value;
+  let path = '/sensors?';
+  if (dcId) path += `datacenter_id=${dcId}&`;
+  if (status) path += `status_filter=${status}&`;
+
+  const [sensors, summary, dcs] = await Promise.all([
+    api(path),
+    api(`/sensors/summary${dcId ? `?datacenter_id=${dcId}` : ''}`),
+    api('/datacenters'),
+  ]);
+
+  const dcSelect = document.getElementById('sensor-dc-filter');
+  if (dcSelect.options.length <= 1) {
+    dcSelect.innerHTML = '<option value="">كل المراكز</option>' +
+      dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    if (dcId) dcSelect.value = dcId;
+  }
+
+  document.getElementById('sensor-summary-bar').innerHTML = `
+    <div class="chip"><span class="sensor-dot up"></span>طبيعي: <strong>${summary.up || 0}</strong></div>
+    <div class="chip"><span class="sensor-dot warning"></span>تحذير: <strong>${summary.warning || 0}</strong></div>
+    <div class="chip"><span class="sensor-dot down"></span>تعطل: <strong>${summary.down || 0}</strong></div>
+    <div class="chip"><span class="sensor-dot paused"></span>موقوف: <strong>${summary.paused || 0}</strong></div>
+    <div class="chip"><span class="sensor-dot unknown"></span>غير معروف: <strong>${summary.unknown || 0}</strong></div>
+    <div class="chip">الإجمالي: <strong>${summary.total || 0}</strong></div>
+  `;
+
+  const tbody = document.querySelector('#sensors-table tbody');
+  tbody.innerHTML = sensors.map(s => {
+    const val = s.last_value != null ? `${s.last_value}${s.unit || ''}` : '—';
+    return `<tr>
+      <td><span class="sensor-dot ${s.last_status}" title="${s.status_label}"></span></td>
+      <td>${s.name}</td>
+      <td>${s.asset_name || '—'}</td>
+      <td>${ASSET_TYPE_LABELS[s.asset_type] || s.asset_type}</td>
+      <td><strong>${val}</strong></td>
+      <td>${s.warning_limit ?? '—'}</td>
+      <td>${s.error_limit ?? '—'}</td>
+      <td class="sensor-status-${s.last_status}">${s.status_label}</td>
+      <td>${s.last_check_at ? new Date(s.last_check_at).toLocaleString('ar') : '—'}</td>
+      <td><button class="btn-sm" onclick="openSensorDetail(${s.id})">تفاصيل</button></td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="10" style="text-align:center;color:var(--muted)">لا توجد حساسات — شغّل فحص الأصول أو أنشئ حساسات افتراضية</td></tr>';
+}
+
+async function openSensorDetail(id) {
+  const sensor = await api(`/sensors/${id}`);
+  const history = await api(`/sensors/${id}/history?limit=40`);
+  document.getElementById('sensor-detail').classList.remove('hidden');
+  document.getElementById('sensor-detail-title').textContent = `${sensor.name} — ${sensor.asset_name || ''}`;
+  document.getElementById('sensor-edit-id').value = sensor.id;
+  document.getElementById('sensor-edit-name').value = sensor.name;
+  document.getElementById('sensor-edit-warning').value = sensor.warning_limit ?? '';
+  document.getElementById('sensor-edit-error').value = sensor.error_limit ?? '';
+  document.getElementById('sensor-edit-direction').value = String(sensor.higher_is_worse);
+  document.getElementById('sensor-edit-enabled').value = String(sensor.enabled);
+
+  const chart = document.getElementById('sensor-history-chart');
+  if (!history.length) {
+    chart.innerHTML = '<p class="muted">لا يوجد سجل بعد — انتظر دورة الفحص</p>';
+    return;
+  }
+  const max = Math.max(...history.map(h => h.value), 1);
+  const warn = sensor.warning_limit;
+  const err = sensor.error_limit;
+  chart.innerHTML = history.map(h => {
+    const pct = Math.max(4, (h.value / max) * 100);
+    let cls = '';
+    if (err != null && h.value >= err) cls = 'down';
+    else if (warn != null && h.value >= warn) cls = 'warn';
+    return `<div class="bar ${cls}" style="height:${pct}%" title="${h.value}${h.unit || ''}"></div>`;
+  }).join('');
+}
+
+document.getElementById('refresh-sensors')?.addEventListener('click', loadSensors);
+document.getElementById('sensor-dc-filter')?.addEventListener('change', loadSensors);
+document.getElementById('sensor-status-filter')?.addEventListener('change', loadSensors);
+document.getElementById('close-sensor-detail')?.addEventListener('click', () => {
+  document.getElementById('sensor-detail').classList.add('hidden');
+});
+document.getElementById('save-sensor-btn')?.addEventListener('click', async () => {
+  const id = document.getElementById('sensor-edit-id').value;
+  const body = {
+    name: document.getElementById('sensor-edit-name').value,
+    warning_limit: parseFloat(document.getElementById('sensor-edit-warning').value) || null,
+    error_limit: parseFloat(document.getElementById('sensor-edit-error').value) || null,
+    higher_is_worse: document.getElementById('sensor-edit-direction').value === 'true',
+    enabled: document.getElementById('sensor-edit-enabled').value === 'true',
+  };
+  try {
+    await api(`/sensors/${id}`, { method: 'PATCH', body });
+    await loadSensors();
+    await openSensorDetail(id);
+  } catch (err) {
+    alert(err.message);
+  }
+});
+document.getElementById('seed-sensors')?.addEventListener('click', async () => {
+  try {
+    const r = await api('/sensors/seed', { method: 'POST' });
+    alert(`تم إنشاء ${r.created} حساس`);
+    loadSensors();
+  } catch (err) { alert(err.message); }
+});
 
 // --- Excel Import ---
 let excelSelectedFile = null;

@@ -7,15 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
-    Alert,
-    AlertSeverity,
-    AlertStatus,
     DeviceStatus,
     ProtocolType,
+    SensorAssetType,
     Server,
     ServerMetric,
     ServerOSType,
 )
+from app.services.sensor_engine import mark_asset_sensors_down, process_sensor_metrics
 from app.services.snmp_collector import snmp_get_bulk
 from app.services.ssh_connector import run_ssh_command
 
@@ -63,17 +62,33 @@ async def poll_server(db: AsyncSession, server_id: int) -> dict:
     if metrics_collected or protocol_used:
         server.status = DeviceStatus.ONLINE
         server.last_seen = datetime.now(timezone.utc)
+        metrics_dict: dict[str, tuple[float, str | None]] = {}
         for name, value, unit in metrics_collected:
             db.add(ServerMetric(server_id=server.id, metric_name=name, metric_value=value, unit=unit))
-        await _check_server_thresholds(db, server, metrics_collected)
+            metrics_dict[name] = (value, unit)
+        if "reachable" not in metrics_dict:
+            metrics_dict["reachable"] = (1.0, "bool")
+        await process_sensor_metrics(
+            db,
+            asset_type=SensorAssetType.SERVER,
+            asset_id=server.id,
+            datacenter_id=server.datacenter_id,
+            asset_name=server.name,
+            metrics=metrics_dict,
+        )
         await db.flush()
         return {"success": True, "protocol": protocol_used, "hostname": server.hostname, "metrics": len(metrics_collected)}
 
     server.status = DeviceStatus.OFFLINE
-    await db.flush()
-    await _create_server_alert(
-        db, server, f"Server unreachable: {server.name}", error or "All protocols failed", AlertSeverity.CRITICAL
+    await mark_asset_sensors_down(
+        db,
+        asset_type=SensorAssetType.SERVER,
+        asset_id=server.id,
+        datacenter_id=server.datacenter_id,
+        asset_name=server.name,
+        message=error or "All protocols failed",
     )
+    await db.flush()
     return {"success": False, "error": error or "All protocols failed"}
 
 
@@ -175,38 +190,6 @@ async def _poll_ipmi(host: str, username: str, password: str, port: int) -> list
     output = await asyncio.to_thread(_run)
     ok = bool(output.strip())
     return [("reachable", 1.0 if ok else 0.0, "bool"), ("ipmi_sensors", float(output.count("\n")), "count")]
-
-
-async def _check_server_thresholds(db: AsyncSession, server: Server, metrics: list[tuple[str, float, str | None]]) -> None:
-    for name, value, unit in metrics:
-        if name == "cpu_utilization" and value > 90:
-            await _create_server_alert(db, server, f"High CPU on {server.name}", f"CPU {value}%", AlertSeverity.WARNING)
-        if name == "memory_usage" and value > 90:
-            await _create_server_alert(db, server, f"High memory on {server.name}", f"Memory {value}%", AlertSeverity.WARNING)
-        if name == "disk_usage_root" and value > 90:
-            await _create_server_alert(db, server, f"High disk on {server.name}", f"Disk {value}%", AlertSeverity.WARNING)
-
-
-async def _create_server_alert(db: AsyncSession, server: Server, title: str, message: str, severity: AlertSeverity) -> None:
-    existing = await db.execute(
-        select(Alert).where(
-            Alert.server_id == server.id,
-            Alert.title == title,
-            Alert.status.in_([AlertStatus.OPEN, AlertStatus.ACKNOWLEDGED]),
-        )
-    )
-    if existing.scalar_one_or_none():
-        return
-    db.add(
-        Alert(
-            server_id=server.id,
-            datacenter_id=server.datacenter_id,
-            title=title,
-            message=message,
-            severity=severity,
-            source="server_monitor",
-        )
-    )
 
 
 async def poll_all_servers(db: AsyncSession) -> dict:

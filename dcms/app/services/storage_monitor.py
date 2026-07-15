@@ -6,15 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
-    Alert,
-    AlertSeverity,
-    AlertStatus,
     DeviceStatus,
     ProtocolType,
+    SensorAssetType,
     StorageMetric,
     StorageSystem,
     StorageVendor,
 )
+from app.services.sensor_engine import mark_asset_sensors_down, process_sensor_metrics
 from app.services.snmp_collector import snmp_get_bulk
 from app.services.ssh_connector import run_ssh_command
 
@@ -73,13 +72,24 @@ async def poll_storage(db: AsyncSession, storage_id: int) -> dict:
     if metrics or protocol_used:
         storage.status = DeviceStatus.ONLINE
         storage.last_seen = datetime.now(timezone.utc)
+        metrics_dict: dict[str, tuple[float, str | None]] = {}
         for name, value, unit in metrics:
             db.add(StorageMetric(storage_id=storage.id, metric_name=name, metric_value=value, unit=unit))
+            metrics_dict[name] = (value, unit)
             if name == "total_capacity_tb":
                 storage.total_capacity_tb = value
             if name == "used_capacity_tb":
                 storage.used_capacity_tb = value
-        await _check_storage_thresholds(db, storage, metrics)
+        if "reachable" not in metrics_dict:
+            metrics_dict["reachable"] = (1.0, "bool")
+        await process_sensor_metrics(
+            db,
+            asset_type=SensorAssetType.STORAGE,
+            asset_id=storage.id,
+            datacenter_id=storage.datacenter_id,
+            asset_name=storage.name,
+            metrics=metrics_dict,
+        )
         await db.flush()
         usage = None
         if storage.total_capacity_tb and storage.used_capacity_tb and storage.total_capacity_tb > 0:
@@ -92,10 +102,15 @@ async def poll_storage(db: AsyncSession, storage_id: int) -> dict:
         }
 
     storage.status = DeviceStatus.OFFLINE
-    await db.flush()
-    await _create_storage_alert(
-        db, storage, f"Storage unreachable: {storage.name}", error or "All protocols failed", AlertSeverity.CRITICAL
+    await mark_asset_sensors_down(
+        db,
+        asset_type=SensorAssetType.STORAGE,
+        asset_id=storage.id,
+        datacenter_id=storage.datacenter_id,
+        asset_name=storage.name,
+        message=error or "All protocols failed",
     )
+    await db.flush()
     return {"success": False, "error": error or "All protocols failed"}
 
 
@@ -204,44 +219,6 @@ async def _poll_ssh(storage: StorageSystem, username: str, password: str, port: 
         except ValueError:
             pass
     return metrics
-
-
-async def _check_storage_thresholds(
-    db: AsyncSession, storage: StorageSystem, metrics: list[tuple[str, float, str | None]]
-) -> None:
-    for name, value, _ in metrics:
-        if name == "capacity_usage" and value > 85:
-            await _create_storage_alert(
-                db, storage, f"Storage almost full: {storage.name}", f"Usage {value}%", AlertSeverity.WARNING
-            )
-        if name == "capacity_usage" and value > 95:
-            await _create_storage_alert(
-                db, storage, f"Storage critical: {storage.name}", f"Usage {value}%", AlertSeverity.CRITICAL
-            )
-
-
-async def _create_storage_alert(
-    db: AsyncSession, storage: StorageSystem, title: str, message: str, severity: AlertSeverity
-) -> None:
-    existing = await db.execute(
-        select(Alert).where(
-            Alert.storage_id == storage.id,
-            Alert.title == title,
-            Alert.status.in_([AlertStatus.OPEN, AlertStatus.ACKNOWLEDGED]),
-        )
-    )
-    if existing.scalar_one_or_none():
-        return
-    db.add(
-        Alert(
-            storage_id=storage.id,
-            datacenter_id=storage.datacenter_id,
-            title=title,
-            message=message,
-            severity=severity,
-            source="storage_monitor",
-        )
-    )
 
 
 async def poll_all_storage(db: AsyncSession) -> dict:
