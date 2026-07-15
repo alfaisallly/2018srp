@@ -1,0 +1,984 @@
+/**
+ * DCMS bilingual UI — Arabic (ar) + English (en)
+ */
+(function () {
+  'use strict';
+
+  const STORAGE_KEY = 'dcms_lang';
+  const DEFAULT_LANG = 'ar';
+
+  const TRANSLATIONS = {
+    ar: {
+      // App & header
+      'app.title': 'DCMS - إدارة مراكز البيانات',
+      'app.heading': 'DCMS — نظام إدارة مراكز البيانات',
+      'header.dc_label': 'المركز:',
+      'header.all_dcs': 'جميع المراكز',
+      'header.all_dcs_unified': 'جميع المراكز — عرض مجمّع',
+      'header.dc_only': '{name} فقط',
+      'header.logout': 'خروج',
+      'lang.ar': 'العربية',
+      'lang.en': 'English',
+      'lang.switch': 'اللغة',
+
+      // Navigation
+      'nav.dashboard': 'لوحة التحكم',
+      'nav.dc_display': 'التحكم بالعرض',
+      'nav.devices': 'الشبكة',
+      'nav.servers': 'السيرفرات',
+      'nav.storage': 'التخزين',
+      'nav.network_map': 'خريطة الشبكة',
+      'nav.sensors': 'الحساسات',
+      'nav.alerts': 'التنبيهات',
+      'nav.reports': 'التقارير',
+      'nav.import_excel': 'استيراد Excel',
+      'nav.users': 'المستخدمين',
+
+      // Login
+      'login.title': 'تسجيل الدخول',
+      'login.username': 'اسم المستخدم',
+      'login.password': 'كلمة المرور',
+      'login.submit': 'دخول',
+      'login.error': 'بيانات الدخول غير صحيحة',
+
+      // View modes
+      'view.unified': 'عرض مجمّع',
+      'view.unified_short': '⊞ مجمّع',
+      'view.unified_full': '⊞ عرض مجمّع',
+      'view.unified_title': '⊞ عرض مجمّع — {count} مركز',
+      'view.unified_desc': 'كل المراكز في جداول موحّدة مع عمود المركز',
+      'view.unified_hint': 'عرض مجمّع — كل المراكز في جداول موحّدة',
+      'view.separate': 'عرض منفرد',
+      'view.separate_short': '▣ منفرد',
+      'view.separate_full': '▣ عرض منفرد',
+      'view.separate_desc': 'بطاقات مراكز — انقر لعرض مركز واحد بالتفصيل',
+      'view.separate_hint': 'عرض منفرد — بطاقات مراكز، انقر للتفاصيل',
+      'view.separate_list_title': 'قائمة المراكز — عرض منفرد',
+      'view.separate_preview': 'معاينة — عرض منفرد',
+      'view.separate_preview_hint': 'انتقل إلى لوحة التحكم لعرض بطاقات المراكز والنقر للتفاصيل',
+      'view.compare': 'عرض مقارنة',
+      'view.compare_short': '▥ مقارنة',
+      'view.compare_full': '▥ عرض مقارنة',
+      'view.compare_title': '▥ عرض مقارنة — {count} مراكز',
+      'view.compare_desc': 'مقارنة المراكز جنباً إلى جنب في أعمدة',
+      'view.compare_hint': 'عرض مقارنة — المراكز جنباً إلى جنب',
+      'view.hint': 'اختر نمط العرض: مجمّع (كل المراكز معاً) أو منفرد (مركز واحد) أو مقارنة (جنباً إلى جنب)',
+      'view.filtered': ' — مفلتر: {name}',
+      'view.details': 'عرض التفاصيل',
+      'view.report': 'تقرير',
+
+      // Dashboard & datacenters
+      'dc.title': 'مراكز البيانات',
+      'dc.list_hint': 'انقر على مركز لعرض تفاصيله (الشبكة، الخوادم، التخزين، المخطط، التنبيهات)',
+      'dc.add': '+ إضافة مركز بيانات',
+      'dc.add_title': 'إضافة مركز بيانات',
+      'dc.name': 'الاسم',
+      'dc.location': 'الموقع',
+      'dc.email': 'البريد',
+      'dc.description': 'الوصف',
+      'dc.name_placeholder': 'DC-MOROOR-01',
+      'dc.location_placeholder': 'بغداد',
+      'dc.email_placeholder': 'admin@example.com',
+      'dc.desc_placeholder': 'وصف المركز',
+      'dc.back_all': '← جميع المراكز',
+      'dc.no_location': 'بدون موقع',
+      'dc.no_details': 'بدون تفاصيل',
+      'dc.no_dcs': 'لا توجد مراكز بيانات — أضف مركزاً للبدء',
+      'dc.no_dcs_short': 'لا توجد مراكز',
+      'dc.filter_selected': 'مركز محدد',
+      'dc.chip_switch': 'سويج',
+      'dc.chip_firewall': 'جدار',
+      'dc.chip_server': 'خادم',
+      'dc.chip_storage': 'تخزين',
+      'dc.chip_alert': 'تنبيه',
+
+      // DC tabs
+      'dc.tab.overview': 'نظرة عامة',
+      'dc.tab.switches': 'السويجات',
+      'dc.tab.firewalls': 'جدران الحماية',
+      'dc.tab.servers': 'الخوادم',
+      'dc.tab.storage': 'التخزين',
+      'dc.tab.topology': 'مخطط الربط',
+      'dc.tab.sensors': 'الحساسات',
+      'dc.tab.alerts': 'التنبيهات',
+      'dc.tab.reports': 'التقارير',
+      'dc.overview_title': 'نظرة عامة — {name}',
+      'dc.overview_maps': 'مخططات',
+      'dc.overview_maps_empty': 'لا يوجد — استورد Excel أو أنشئ مخططاً',
+      'dc.topology_empty': 'لا يوجد مخطط لهذا المركز. استورد ملف Excel مع ورقة Links أو أنشئ مخططاً من تبويب خريطة الشبكة.',
+      'dc.topology_title': 'مخطط الربط — {name}',
+      'dc.topology_showing': 'يعرض: {name} ({count} مخططات متاحة)',
+      'dc.reports_title': 'تقارير {name}',
+      'dc.reports_desc': 'تصدير تقرير PDF/HTML يشمل السويجات وجدران الحماية والخوادم والتخزين والحساسات والتنبيهات.',
+      'dc.download_report': 'تحميل تقرير المركز',
+      'dc.open_reports_tab': 'فتح تبويب التقارير',
+
+      // DC display panel
+      'dc_display.title': 'التحكم بعرض مراكز البيانات',
+      'dc_display.desc': 'اختر كيف تريد عرض المراكز في لوحة التحكم وباقي التبويبات — مجمّعة أو منفردة أو مقارنة',
+      'dc_display.global_filter': 'فلتر عام (يُطبّق على الشبكة والسيرفرات والتخزين والتنبيهات)',
+
+      // Stats labels
+      'stats.datacenters': 'مراكز البيانات',
+      'stats.devices': 'أجهزة الشبكة',
+      'stats.servers': 'السيرفرات',
+      'stats.storage': 'التخزين',
+      'stats.online_network': 'شبكة متصلة',
+      'stats.open_alerts': 'تنبيهات مفتوحة',
+      'stats.sensors': 'الحساسات',
+      'stats.switches': 'سويجات',
+      'stats.firewalls': 'جدران حماية',
+      'stats.servers_short': 'خوادم',
+      'stats.storage_short': 'تخزين',
+      'stats.online': 'متصل',
+      'stats.alerts': 'تنبيهات',
+      'stats.sensors_up': 'حساسات طبيعية',
+      'stats.sensors_down': 'حساسات متعطلة',
+      'stats.total_assets': 'إجمالي الأصول',
+      'stats.network_devices': 'أجهزة شبكة',
+      'stats.links': 'روابط',
+      'stats.total': 'الإجمالي',
+
+      // Devices
+      'devices.title': 'الأجهزة',
+      'devices.add': '+ إضافة جهاز',
+      'devices.discover': '🔍 مسح الشبكة',
+      'devices.poll_all': 'فحص الكل',
+      'devices.add_title': 'إضافة جهاز جديد',
+      'devices.datacenter': 'مركز البيانات',
+      'devices.name': 'الاسم',
+      'devices.hostname': 'Hostname',
+      'devices.ip': 'IP Address',
+      'devices.vendor': 'المورّد',
+      'devices.type': 'نوع الجهاز',
+      'devices.protocol': 'البروتوكول',
+      'devices.community': 'Community (SNMP)',
+      'devices.username': 'Username',
+      'devices.password': 'Password',
+      'devices.token': 'API Token',
+      'devices.port': 'Port',
+      'devices.port_auto': 'تلقائي',
+      'devices.save_add': 'حفظ وإضافة',
+      'devices.name_placeholder': 'Core-SW-01',
+      'devices.hostname_placeholder': 'core-sw-01',
+      'devices.ip_placeholder': '172.16.10.1',
+      'devices.discover_title': 'مسح الشبكة (SNMP)',
+      'devices.cidr': 'نطاق CIDR',
+      'devices.cidr_placeholder': '172.16.10.0/24',
+      'devices.start_ip': 'أو: IP البداية',
+      'devices.start_placeholder': '172.16.10.1',
+      'devices.end_ip': 'IP النهاية',
+      'devices.end_placeholder': '172.16.10.50',
+      'devices.snmp_community': 'SNMP Community',
+      'devices.start_scan': 'بدء المسح',
+      'devices.scanning': 'جاري المسح... قد يستغرق دقائق',
+      'devices.scan_result': 'تم مسح {scanned} IP — وُجد {found} جهاز',
+      'devices.scan_none': 'لم يُكتشف أي جهاز. تحقق من Community والاتصال.',
+      'devices.scan_error': 'خطأ: {message}',
+      'devices.cidr_required': 'أدخل CIDR أو نطاق IP',
+      'devices.import_selected': 'استيراد المحدد ({count})',
+      'devices.no_devices': 'لا توجد أجهزة',
+      'devices.added_poll': 'تمت الإضافة. هل تريد فحص الجهاز الآن؟',
+      'devices.select_one': 'حدّد جهازاً واحداً على الأقل',
+      'devices.imported': 'تم استيراد {imported} جهاز ({skipped} تخطّى)',
+      'devices.poll_result': 'فحص {total}: {online} متصل، {offline} غير متصل',
+      'devices.poll_ok': 'متصل عبر {protocol}',
+      'devices.poll_fail': 'فشل: {error}',
+
+      // Servers
+      'servers.title': 'السيرفرات',
+      'servers.add': '+ إضافة سيرفر',
+      'servers.guide': '📋 دليل الدخول والفحص',
+      'servers.guide_title': 'دليل الدخول والفحص — السيرفرات',
+      'servers.guide_item': '{protocol} — منفذ {port}: {description}',
+      'servers.guide_fields': 'الحقول: {fields}',
+      'servers.add_title': 'إضافة سيرفر',
+      'servers.os': 'نظام التشغيل',
+      'servers.role': 'الدور',
+      'servers.no_servers': 'لا توجد سيرفرات',
+      'servers.poll': 'فحص',
+      'servers.creds': 'اعتماد',
+      'servers.no_creds': 'لا اعتماد',
+      'servers.creds_line': '{protocol} | user:{user} | port:{port} | pwd:{pwd}',
+      'servers.added_poll': 'تمت الإضافة. فحص الآن؟',
+      'servers.poll_result': 'سيرفرات: {online}/{total} متصل',
+      'servers.poll_ok': 'متصل عبر {protocol} — {metrics} مقياس',
+      'servers.poll_fail': 'فشل: {error}',
+
+      // Storage
+      'storage.title': 'أنظمة التخزين',
+      'storage.add': '+ إضافة Storage',
+      'storage.guide': '📋 دليل الدخول والفحص',
+      'storage.guide_title': 'دليل الدخول والفحص — التخزين',
+      'storage.add_title': 'إضافة نظام تخزين',
+      'storage.model': 'الطراز',
+      'storage.model_placeholder': 'FlashArray //R40',
+      'storage.type': 'النوع',
+      'storage.capacity': 'السعة (TB)',
+      'storage.usage': 'الاستخدام',
+      'storage.no_systems': 'لا أنظمة تخزين',
+      'storage.poll_result': 'تخزين: {online}/{total} متصل',
+      'storage.poll_ok': 'متصل — استخدام {pct}%',
+      'storage.poll_fail': 'فشل: {error}',
+      'storage.creds_line': '{protocol} | port:{port} | community:{community} | token:{token}',
+
+      // Network map
+      'network.title': 'خريطة الشبكة',
+      'network.refresh': 'تحديث الخريطة',
+
+      // Sensors
+      'sensors.title': 'مراقبة الحساسات',
+      'sensors.all_dcs': 'كل المراكز',
+      'sensors.all_status': 'كل الحالات',
+      'sensors.seed': 'إنشاء حساسات افتراضية',
+      'sensors.sensor': 'الحساس',
+      'sensors.asset': 'الأصل',
+      'sensors.value': 'القيمة',
+      'sensors.warning_limit': 'تحذير',
+      'sensors.error_limit': 'خطأ',
+      'sensors.last_check': 'آخر فحص',
+      'sensors.detail': 'تفاصيل',
+      'sensors.detail_title': 'تفاصيل الحساس',
+      'sensors.close': 'إغلاق',
+      'sensors.warning_threshold': 'حد التحذير',
+      'sensors.error_threshold': 'حد الخطأ',
+      'sensors.direction': 'الاتجاه',
+      'sensors.direction_higher': 'أعلى = أسوأ',
+      'sensors.direction_lower': 'أقل = أسوأ',
+      'sensors.enabled': 'مفعّل',
+      'sensors.save_limits': 'حفظ الحدود',
+      'sensors.history': 'السجل (آخر القيم)',
+      'sensors.no_history': 'لا يوجد سجل بعد — انتظر دورة الفحص',
+      'sensors.no_sensors': 'لا توجد حساسات — شغّل فحص الأصول أو أنشئ حساسات افتراضية',
+      'sensors.no_sensors_dc': 'لا توجد حساسات — شغّل الفحص',
+      'sensors.summary_up': 'طبيعي: {count}',
+      'sensors.summary_warning': 'تحذير: {count}',
+      'sensors.summary_down': 'تعطل: {count}',
+      'sensors.summary_paused': 'موقوف: {count}',
+      'sensors.summary_unknown': 'غير معروف: {count}',
+      'sensors.summary_total': 'الإجمالي: {count}',
+      'sensors.seeded': 'تم إنشاء {count} حساس',
+
+      // Alerts
+      'alerts.title': 'التنبيهات',
+      'alerts.title_short': 'تنبيهات',
+      'alerts.ack': 'اعتماد',
+      'alerts.resolve': 'حل',
+      'alerts.no_alerts': 'لا توجد تنبيهات',
+      'alerts.no_open': 'لا توجد تنبيهات مفتوحة',
+
+      // Reports
+      'reports.title': 'التقارير',
+      'reports.export_hint': 'تصدير تقرير PDF/HTML لمركز بيانات:',
+      'reports.download': 'تحميل التقرير',
+      'reports.select_dc': 'اختر مركز بيانات',
+
+      // Excel import
+      'excel.title': 'استيراد من Excel',
+      'excel.download_template': '📥 تحميل القالب',
+      'excel.hint': 'ارفع ملف Excel (.xlsx) يحتوي على أجهزة الشبكة والسيرفرات والتخزين وعناوين IP. سيتم تحليل الملف وعرض معاينة قبل الاستيراد، ثم إنشاء الأصول ومراكز البيانات ومخططات الشبكة تلقائياً.',
+      'excel.drop_hint': 'اسحب ملف Excel هنا أو',
+      'excel.browse': 'اختيار ملف',
+      'excel.skip_existing': 'تخطي الأصول الموجودة (نفس IP)',
+      'excel.preview': 'معاينة',
+      'excel.apply': 'تأكيد الاستيراد',
+      'excel.only_xlsx': 'يُقبل ملف Excel فقط (.xlsx)',
+      'excel.parsing': 'جاري التحليل...',
+      'excel.parsed': 'تم التحليل — راجع المعاينة ثم أكّد الاستيراد',
+      'excel.importing': 'جاري الاستيراد...',
+      'excel.imported': 'تم الاستيراد: {imported} أصل، {skipped} متخطى، {datacenters} مركز بيانات، {maps} مخطط',
+      'excel.imported_warnings': ' — تحذيرات: {warnings}',
+      'excel.confirm_import': 'هل تريد استيراد الأصول وإنشاء/تحديث المخططات ومراكز البيانات؟',
+      'excel.warnings': 'تحذيرات:',
+      'excel.dc_section': 'مراكز البيانات',
+      'excel.assets_section': 'الأصول',
+      'excel.links_section': 'روابط المخطط',
+      'excel.no_links': 'لا توجد روابط',
+      'excel.none': 'لا توجد',
+
+      // Users
+      'users.title': 'إدارة المستخدمين',
+      'users.add': '+ إضافة مستخدم',
+      'users.add_title': 'إضافة مستخدم',
+      'users.edit_title': 'تعديل مستخدم',
+      'users.username': 'اسم المستخدم',
+      'users.email': 'البريد',
+      'users.fullname': 'الاسم الكامل',
+      'users.password': 'كلمة المرور',
+      'users.role_template': 'قالب الصلاحيات',
+      'users.status': 'الحالة',
+      'users.perms_detail': 'الصلاحيات التفصيلية',
+      'users.user': 'المستخدم',
+      'users.role': 'الدور',
+      'users.permissions': 'الصلاحيات',
+      'users.edit': 'تعديل',
+      'users.delete': 'حذف',
+      'users.no_users': 'لا مستخدمين',
+      'users.confirm_delete': 'حذف هذا المستخدم؟',
+      'users.active': 'نشط',
+      'users.inactive': 'معطّل',
+
+      // Common actions & labels
+      'common.save': 'حفظ',
+      'common.cancel': 'إلغاء',
+      'common.refresh': 'تحديث',
+      'common.poll': 'فحص',
+      'common.add': 'إضافة',
+      'common.close': 'إغلاق',
+      'common.action': 'إجراء',
+      'common.name': 'الاسم',
+      'common.ip': 'IP',
+      'common.status': 'الحالة',
+      'common.last_seen': 'آخر ظهور',
+      'common.date': 'التاريخ',
+      'common.source': 'المصدر',
+      'common.severity': 'الخطورة',
+      'common.title': 'العنوان',
+      'common.type': 'النوع',
+      'common.row': 'صف',
+      'common.from': 'من',
+      'common.to': 'إلى',
+      'common.desc': 'الوصف',
+      'common.protocol': 'البروتوكول',
+      'common.vendor': 'المورّد',
+      'common.datacenter': 'مركز البيانات',
+      'common.dc_col': 'المركز',
+      'common.os': 'OS',
+      'common.role_col': 'الدور',
+      'common.capacity': 'السعة',
+      'common.yes': 'نعم',
+      'common.no': 'لا',
+      'common.none': 'لا يوجد',
+      'common.no_data': 'لا توجد بيانات',
+      'common.no_assets': 'لا توجد أصول',
+      'common.default': 'default',
+      'common.confirm_logout': 'هل تريد تسجيل الخروج؟',
+      'common.dash': '—',
+
+      // Status labels
+      'status.online': 'متصل',
+      'status.offline': 'غير متصل',
+      'status.degraded': 'متدهور',
+      'status.unknown': 'غير معروف',
+      'status.up': 'طبيعي',
+      'status.warning': 'تحذير',
+      'status.down': 'تعطل',
+      'status.paused': 'موقوف',
+      'status.open': 'مفتوح',
+      'status.acknowledged': 'معتمد',
+      'status.resolved': 'محلول',
+
+      // Roles
+      'role.admin': 'مدير النظام',
+      'role.editor': 'قراءة وتعديل',
+      'role.operator': 'مشغّل',
+      'role.viewer': 'قراءة فقط',
+      'role.custom': 'مخصص',
+
+      // Device types
+      'device_type.switch': 'سويج',
+      'device_type.firewall': 'جدار حماية',
+      'device_type.router': 'راوتر',
+      'device_type.other': 'أخرى',
+
+      // Asset types
+      'asset_type.device': 'شبكة',
+      'asset_type.server': 'سيرفر',
+      'asset_type.storage': 'تخزين',
+
+      // Vendors (display)
+      'vendor.cisco': 'Cisco',
+      'vendor.juniper': 'Juniper',
+      'vendor.fortinet': 'Fortinet',
+      'vendor.generic': 'Generic',
+      'vendor.pure_storage': 'Pure Storage',
+      'vendor.netapp': 'NetApp',
+      'vendor.dell_emc': 'Dell EMC',
+      'vendor.hpe': 'HPE',
+      'vendor.qnap': 'QNAP',
+      'vendor.synology': 'Synology',
+
+      // Server OS
+      'os.linux': 'Linux',
+      'os.windows': 'Windows',
+      'os.vmware': 'VMware',
+      'os.other': 'Other',
+
+      // Server roles
+      'server_role.application': 'Application',
+      'server_role.database': 'Database',
+      'server_role.web': 'Web',
+      'server_role.hypervisor': 'Hypervisor',
+      'server_role.other': 'Other',
+
+      // Storage types
+      'storage_type.san': 'SAN',
+      'storage_type.nas': 'NAS',
+      'storage_type.object': 'Object',
+      'storage_type.other': 'Other',
+
+      // Protocols
+      'protocol.snmp': 'SNMP',
+      'protocol.ssh': 'SSH',
+      'protocol.netconf': 'NETCONF',
+      'protocol.rest': 'REST API',
+      'protocol.rest_pure': 'REST API (Pure Storage)',
+      'protocol.ssh_linux': 'SSH (Linux)',
+      'protocol.winrm': 'WinRM (Windows)',
+      'protocol.rest_vmware': 'REST (VMware)',
+      'protocol.ipmi': 'IPMI (BMC/iDRAC)',
+
+      // Section headers (unified view)
+      'section.switches': '🔀 السويجات ({count})',
+      'section.firewalls': '🛡️ جدران الحماية ({count})',
+      'section.servers': '🖥️ الخوادم ({count})',
+      'section.storage': '💾 التخزين ({count})',
+      'section.alerts': '⚠️ التنبيهات ({count})',
+    },
+
+    en: {
+      // App & header
+      'app.title': 'DCMS - Data Center Management',
+      'app.heading': 'DCMS — Data Center Management System',
+      'header.dc_label': 'Center:',
+      'header.all_dcs': 'All Centers',
+      'header.all_dcs_unified': 'All Centers — Unified View',
+      'header.dc_only': '{name} only',
+      'header.logout': 'Logout',
+      'lang.ar': 'العربية',
+      'lang.en': 'English',
+      'lang.switch': 'Language',
+
+      // Navigation
+      'nav.dashboard': 'Dashboard',
+      'nav.dc_display': 'Display Control',
+      'nav.devices': 'Network',
+      'nav.servers': 'Servers',
+      'nav.storage': 'Storage',
+      'nav.network_map': 'Network Map',
+      'nav.sensors': 'Sensors',
+      'nav.alerts': 'Alerts',
+      'nav.reports': 'Reports',
+      'nav.import_excel': 'Import Excel',
+      'nav.users': 'Users',
+
+      // Login
+      'login.title': 'Sign In',
+      'login.username': 'Username',
+      'login.password': 'Password',
+      'login.submit': 'Sign In',
+      'login.error': 'Invalid login credentials',
+
+      // View modes
+      'view.unified': 'Unified View',
+      'view.unified_short': '⊞ Unified',
+      'view.unified_full': '⊞ Unified View',
+      'view.unified_title': '⊞ Unified View — {count} center(s)',
+      'view.unified_desc': 'All centers in unified tables with a center column',
+      'view.unified_hint': 'Unified view — all centers in unified tables',
+      'view.separate': 'Separate View',
+      'view.separate_short': '▣ Separate',
+      'view.separate_full': '▣ Separate View',
+      'view.separate_desc': 'Center cards — click to view one center in detail',
+      'view.separate_hint': 'Separate view — center cards, click for details',
+      'view.separate_list_title': 'Center List — Separate View',
+      'view.separate_preview': 'Preview — Separate View',
+      'view.separate_preview_hint': 'Go to the dashboard to view center cards and click for details',
+      'view.compare': 'Compare View',
+      'view.compare_short': '▥ Compare',
+      'view.compare_full': '▥ Compare View',
+      'view.compare_title': '▥ Compare View — {count} centers',
+      'view.compare_desc': 'Compare centers side by side in columns',
+      'view.compare_hint': 'Compare view — centers side by side',
+      'view.hint': 'Choose a view mode: unified (all centers together), separate (one center), or compare (side by side)',
+      'view.filtered': ' — filtered: {name}',
+      'view.details': 'View Details',
+      'view.report': 'Report',
+
+      // Dashboard & datacenters
+      'dc.title': 'Data Centers',
+      'dc.list_hint': 'Click a center to view details (network, servers, storage, topology, alerts)',
+      'dc.add': '+ Add Data Center',
+      'dc.add_title': 'Add Data Center',
+      'dc.name': 'Name',
+      'dc.location': 'Location',
+      'dc.email': 'Email',
+      'dc.description': 'Description',
+      'dc.name_placeholder': 'DC-MOROOR-01',
+      'dc.location_placeholder': 'Baghdad',
+      'dc.email_placeholder': 'admin@example.com',
+      'dc.desc_placeholder': 'Center description',
+      'dc.back_all': '← All Centers',
+      'dc.no_location': 'No location',
+      'dc.no_details': 'No details',
+      'dc.no_dcs': 'No data centers — add one to get started',
+      'dc.no_dcs_short': 'No centers',
+      'dc.filter_selected': 'Selected center',
+      'dc.chip_switch': 'switch',
+      'dc.chip_firewall': 'firewall',
+      'dc.chip_server': 'server',
+      'dc.chip_storage': 'storage',
+      'dc.chip_alert': 'alert',
+
+      // DC tabs
+      'dc.tab.overview': 'Overview',
+      'dc.tab.switches': 'Switches',
+      'dc.tab.firewalls': 'Firewalls',
+      'dc.tab.servers': 'Servers',
+      'dc.tab.storage': 'Storage',
+      'dc.tab.topology': 'Topology',
+      'dc.tab.sensors': 'Sensors',
+      'dc.tab.alerts': 'Alerts',
+      'dc.tab.reports': 'Reports',
+      'dc.overview_title': 'Overview — {name}',
+      'dc.overview_maps': 'Maps',
+      'dc.overview_maps_empty': 'None — import Excel or create a map',
+      'dc.topology_empty': 'No topology for this center. Import an Excel file with a Links sheet or create a map from the Network Map tab.',
+      'dc.topology_title': 'Topology — {name}',
+      'dc.topology_showing': 'Showing: {name} ({count} maps available)',
+      'dc.reports_title': 'Reports for {name}',
+      'dc.reports_desc': 'Export a PDF/HTML report including switches, firewalls, servers, storage, sensors, and alerts.',
+      'dc.download_report': 'Download Center Report',
+      'dc.open_reports_tab': 'Open Reports Tab',
+
+      // DC display panel
+      'dc_display.title': 'Data Center Display Control',
+      'dc_display.desc': 'Choose how centers are displayed on the dashboard and other tabs — unified, separate, or compare',
+      'dc_display.global_filter': 'Global filter (applies to network, servers, storage, and alerts)',
+
+      // Stats labels
+      'stats.datacenters': 'Data Centers',
+      'stats.devices': 'Network Devices',
+      'stats.servers': 'Servers',
+      'stats.storage': 'Storage',
+      'stats.online_network': 'Network Online',
+      'stats.open_alerts': 'Open Alerts',
+      'stats.sensors': 'Sensors',
+      'stats.switches': 'Switches',
+      'stats.firewalls': 'Firewalls',
+      'stats.servers_short': 'Servers',
+      'stats.storage_short': 'Storage',
+      'stats.online': 'Online',
+      'stats.alerts': 'Alerts',
+      'stats.sensors_up': 'Sensors OK',
+      'stats.sensors_down': 'Sensors Down',
+      'stats.total_assets': 'Total Assets',
+      'stats.network_devices': 'Network Devices',
+      'stats.links': 'Links',
+      'stats.total': 'Total',
+
+      // Devices
+      'devices.title': 'Devices',
+      'devices.add': '+ Add Device',
+      'devices.discover': '🔍 Network Scan',
+      'devices.poll_all': 'Poll All',
+      'devices.add_title': 'Add New Device',
+      'devices.datacenter': 'Data Center',
+      'devices.name': 'Name',
+      'devices.hostname': 'Hostname',
+      'devices.ip': 'IP Address',
+      'devices.vendor': 'Vendor',
+      'devices.type': 'Device Type',
+      'devices.protocol': 'Protocol',
+      'devices.community': 'Community (SNMP)',
+      'devices.username': 'Username',
+      'devices.password': 'Password',
+      'devices.token': 'API Token',
+      'devices.port': 'Port',
+      'devices.port_auto': 'Auto',
+      'devices.save_add': 'Save & Add',
+      'devices.name_placeholder': 'Core-SW-01',
+      'devices.hostname_placeholder': 'core-sw-01',
+      'devices.ip_placeholder': '172.16.10.1',
+      'devices.discover_title': 'Network Scan (SNMP)',
+      'devices.cidr': 'CIDR Range',
+      'devices.cidr_placeholder': '172.16.10.0/24',
+      'devices.start_ip': 'Or: Start IP',
+      'devices.start_placeholder': '172.16.10.1',
+      'devices.end_ip': 'End IP',
+      'devices.end_placeholder': '172.16.10.50',
+      'devices.snmp_community': 'SNMP Community',
+      'devices.start_scan': 'Start Scan',
+      'devices.scanning': 'Scanning... this may take a few minutes',
+      'devices.scan_result': 'Scanned {scanned} IPs — found {found} device(s)',
+      'devices.scan_none': 'No devices discovered. Check community string and connectivity.',
+      'devices.scan_error': 'Error: {message}',
+      'devices.cidr_required': 'Enter a CIDR or IP range',
+      'devices.import_selected': 'Import Selected ({count})',
+      'devices.no_devices': 'No devices',
+      'devices.added_poll': 'Added. Poll the device now?',
+      'devices.select_one': 'Select at least one device',
+      'devices.imported': 'Imported {imported} device(s) ({skipped} skipped)',
+      'devices.poll_result': 'Polled {total}: {online} online, {offline} offline',
+      'devices.poll_ok': 'Online via {protocol}',
+      'devices.poll_fail': 'Failed: {error}',
+
+      // Servers
+      'servers.title': 'Servers',
+      'servers.add': '+ Add Server',
+      'servers.guide': '📋 Access & Polling Guide',
+      'servers.guide_title': 'Access & Polling Guide — Servers',
+      'servers.guide_item': '{protocol} — port {port}: {description}',
+      'servers.guide_fields': 'Fields: {fields}',
+      'servers.add_title': 'Add Server',
+      'servers.os': 'Operating System',
+      'servers.role': 'Role',
+      'servers.no_servers': 'No servers',
+      'servers.poll': 'Poll',
+      'servers.creds': 'Credentials',
+      'servers.no_creds': 'No credentials',
+      'servers.creds_line': '{protocol} | user:{user} | port:{port} | pwd:{pwd}',
+      'servers.added_poll': 'Added. Poll now?',
+      'servers.poll_result': 'Servers: {online}/{total} online',
+      'servers.poll_ok': 'Online via {protocol} — {metrics} metric(s)',
+      'servers.poll_fail': 'Failed: {error}',
+
+      // Storage
+      'storage.title': 'Storage Systems',
+      'storage.add': '+ Add Storage',
+      'storage.guide': '📋 Access & Polling Guide',
+      'storage.guide_title': 'Access & Polling Guide — Storage',
+      'storage.add_title': 'Add Storage System',
+      'storage.model': 'Model',
+      'storage.model_placeholder': 'FlashArray //R40',
+      'storage.type': 'Type',
+      'storage.capacity': 'Capacity (TB)',
+      'storage.usage': 'Usage',
+      'storage.no_systems': 'No storage systems',
+      'storage.poll_result': 'Storage: {online}/{total} online',
+      'storage.poll_ok': 'Online — usage {pct}%',
+      'storage.poll_fail': 'Failed: {error}',
+      'storage.creds_line': '{protocol} | port:{port} | community:{community} | token:{token}',
+
+      // Network map
+      'network.title': 'Network Map',
+      'network.refresh': 'Refresh Map',
+
+      // Sensors
+      'sensors.title': 'Sensor Monitoring',
+      'sensors.all_dcs': 'All Centers',
+      'sensors.all_status': 'All Statuses',
+      'sensors.seed': 'Create Default Sensors',
+      'sensors.sensor': 'Sensor',
+      'sensors.asset': 'Asset',
+      'sensors.value': 'Value',
+      'sensors.warning_limit': 'Warning',
+      'sensors.error_limit': 'Error',
+      'sensors.last_check': 'Last Check',
+      'sensors.detail': 'Details',
+      'sensors.detail_title': 'Sensor Details',
+      'sensors.close': 'Close',
+      'sensors.warning_threshold': 'Warning Threshold',
+      'sensors.error_threshold': 'Error Threshold',
+      'sensors.direction': 'Direction',
+      'sensors.direction_higher': 'Higher = worse',
+      'sensors.direction_lower': 'Lower = worse',
+      'sensors.enabled': 'Enabled',
+      'sensors.save_limits': 'Save Thresholds',
+      'sensors.history': 'History (recent values)',
+      'sensors.no_history': 'No history yet — wait for the next poll cycle',
+      'sensors.no_sensors': 'No sensors — poll assets or create default sensors',
+      'sensors.no_sensors_dc': 'No sensors — run a poll',
+      'sensors.summary_up': 'OK: {count}',
+      'sensors.summary_warning': 'Warning: {count}',
+      'sensors.summary_down': 'Down: {count}',
+      'sensors.summary_paused': 'Paused: {count}',
+      'sensors.summary_unknown': 'Unknown: {count}',
+      'sensors.summary_total': 'Total: {count}',
+      'sensors.seeded': 'Created {count} sensor(s)',
+
+      // Alerts
+      'alerts.title': 'Alerts',
+      'alerts.title_short': 'Alerts',
+      'alerts.ack': 'Acknowledge',
+      'alerts.resolve': 'Resolve',
+      'alerts.no_alerts': 'No alerts',
+      'alerts.no_open': 'No open alerts',
+
+      // Reports
+      'reports.title': 'Reports',
+      'reports.export_hint': 'Export a PDF/HTML report for a data center:',
+      'reports.download': 'Download Report',
+      'reports.select_dc': 'Select a data center',
+
+      // Excel import
+      'excel.title': 'Import from Excel',
+      'excel.download_template': '📥 Download Template',
+      'excel.hint': 'Upload an Excel file (.xlsx) containing network devices, servers, storage, and IP addresses. The file will be parsed and previewed before import, then assets, data centers, and network maps will be created automatically.',
+      'excel.drop_hint': 'Drag an Excel file here or',
+      'excel.browse': 'Choose File',
+      'excel.skip_existing': 'Skip existing assets (same IP)',
+      'excel.preview': 'Preview',
+      'excel.apply': 'Confirm Import',
+      'excel.only_xlsx': 'Only Excel files (.xlsx) are accepted',
+      'excel.parsing': 'Parsing...',
+      'excel.parsed': 'Parsed — review the preview then confirm import',
+      'excel.importing': 'Importing...',
+      'excel.imported': 'Imported: {imported} asset(s), {skipped} skipped, {datacenters} data center(s), {maps} map(s)',
+      'excel.imported_warnings': ' — warnings: {warnings}',
+      'excel.confirm_import': 'Import assets and create/update maps and data centers?',
+      'excel.warnings': 'Warnings:',
+      'excel.dc_section': 'Data Centers',
+      'excel.assets_section': 'Assets',
+      'excel.links_section': 'Topology Links',
+      'excel.no_links': 'No links',
+      'excel.none': 'None',
+
+      // Users
+      'users.title': 'User Management',
+      'users.add': '+ Add User',
+      'users.add_title': 'Add User',
+      'users.edit_title': 'Edit User',
+      'users.username': 'Username',
+      'users.email': 'Email',
+      'users.fullname': 'Full Name',
+      'users.password': 'Password',
+      'users.role_template': 'Permission Template',
+      'users.status': 'Status',
+      'users.perms_detail': 'Detailed Permissions',
+      'users.user': 'User',
+      'users.role': 'Role',
+      'users.permissions': 'Permissions',
+      'users.edit': 'Edit',
+      'users.delete': 'Delete',
+      'users.no_users': 'No users',
+      'users.confirm_delete': 'Delete this user?',
+      'users.active': 'Active',
+      'users.inactive': 'Disabled',
+
+      // Common actions & labels
+      'common.save': 'Save',
+      'common.cancel': 'Cancel',
+      'common.refresh': 'Refresh',
+      'common.poll': 'Poll',
+      'common.add': 'Add',
+      'common.close': 'Close',
+      'common.action': 'Action',
+      'common.name': 'Name',
+      'common.ip': 'IP',
+      'common.status': 'Status',
+      'common.last_seen': 'Last Seen',
+      'common.date': 'Date',
+      'common.source': 'Source',
+      'common.severity': 'Severity',
+      'common.title': 'Title',
+      'common.type': 'Type',
+      'common.row': 'Row',
+      'common.from': 'From',
+      'common.to': 'To',
+      'common.desc': 'Description',
+      'common.protocol': 'Protocol',
+      'common.vendor': 'Vendor',
+      'common.datacenter': 'Data Center',
+      'common.dc_col': 'Center',
+      'common.os': 'OS',
+      'common.role_col': 'Role',
+      'common.capacity': 'Capacity',
+      'common.yes': 'Yes',
+      'common.no': 'No',
+      'common.none': 'None',
+      'common.no_data': 'No data',
+      'common.no_assets': 'No assets',
+      'common.default': 'default',
+      'common.confirm_logout': 'Do you want to sign out?',
+      'common.dash': '—',
+
+      // Status labels
+      'status.online': 'Online',
+      'status.offline': 'Offline',
+      'status.degraded': 'Degraded',
+      'status.unknown': 'Unknown',
+      'status.up': 'OK',
+      'status.warning': 'Warning',
+      'status.down': 'Down',
+      'status.paused': 'Paused',
+      'status.open': 'Open',
+      'status.acknowledged': 'Acknowledged',
+      'status.resolved': 'Resolved',
+
+      // Roles
+      'role.admin': 'System Admin',
+      'role.editor': 'Read & Edit',
+      'role.operator': 'Operator',
+      'role.viewer': 'View Only',
+      'role.custom': 'Custom',
+
+      // Device types
+      'device_type.switch': 'Switch',
+      'device_type.firewall': 'Firewall',
+      'device_type.router': 'Router',
+      'device_type.other': 'Other',
+
+      // Asset types
+      'asset_type.device': 'Network',
+      'asset_type.server': 'Server',
+      'asset_type.storage': 'Storage',
+
+      // Vendors (display)
+      'vendor.cisco': 'Cisco',
+      'vendor.juniper': 'Juniper',
+      'vendor.fortinet': 'Fortinet',
+      'vendor.generic': 'Generic',
+      'vendor.pure_storage': 'Pure Storage',
+      'vendor.netapp': 'NetApp',
+      'vendor.dell_emc': 'Dell EMC',
+      'vendor.hpe': 'HPE',
+      'vendor.qnap': 'QNAP',
+      'vendor.synology': 'Synology',
+
+      // Server OS
+      'os.linux': 'Linux',
+      'os.windows': 'Windows',
+      'os.vmware': 'VMware',
+      'os.other': 'Other',
+
+      // Server roles
+      'server_role.application': 'Application',
+      'server_role.database': 'Database',
+      'server_role.web': 'Web',
+      'server_role.hypervisor': 'Hypervisor',
+      'server_role.other': 'Other',
+
+      // Storage types
+      'storage_type.san': 'SAN',
+      'storage_type.nas': 'NAS',
+      'storage_type.object': 'Object',
+      'storage_type.other': 'Other',
+
+      // Protocols
+      'protocol.snmp': 'SNMP',
+      'protocol.ssh': 'SSH',
+      'protocol.netconf': 'NETCONF',
+      'protocol.rest': 'REST API',
+      'protocol.rest_pure': 'REST API (Pure Storage)',
+      'protocol.ssh_linux': 'SSH (Linux)',
+      'protocol.winrm': 'WinRM (Windows)',
+      'protocol.rest_vmware': 'REST (VMware)',
+      'protocol.ipmi': 'IPMI (BMC/iDRAC)',
+
+      // Section headers (unified view)
+      'section.switches': '🔀 Switches ({count})',
+      'section.firewalls': '🛡️ Firewalls ({count})',
+      'section.servers': '🖥️ Servers ({count})',
+      'section.storage': '💾 Storage ({count})',
+      'section.alerts': '⚠️ Alerts ({count})',
+    },
+  };
+
+  const LANG_OPTIONS = {
+    ar: { flag: '🇮🇶', key: 'lang.ar' },
+    en: { flag: '🇬🇧', key: 'lang.en' },
+  };
+
+  let currentLang = DEFAULT_LANG;
+
+  function substitute(text, params) {
+    if (!params || typeof text !== 'string') return text;
+    return text.replace(/\{(\w+)\}/g, (_, name) => {
+      return params[name] != null ? String(params[name]) : `{${name}}`;
+    });
+  }
+
+  function applyLangAttributes(lang) {
+    const root = document.documentElement;
+    root.lang = lang;
+    root.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  }
+
+  const I18n = {
+    t(key, params) {
+      const dict = TRANSLATIONS[currentLang] || TRANSLATIONS[DEFAULT_LANG];
+      const fallback = TRANSLATIONS[DEFAULT_LANG];
+      const text = (dict && dict[key]) || (fallback && fallback[key]) || key;
+      return substitute(text, params);
+    },
+
+    setLanguage(lang) {
+      if (!TRANSLATIONS[lang]) lang = DEFAULT_LANG;
+      currentLang = lang;
+      localStorage.setItem(STORAGE_KEY, lang);
+      applyLangAttributes(lang);
+      this.applyStatic();
+      this.syncLangSelect();
+      document.dispatchEvent(new CustomEvent('dcms:langchange', { detail: { lang } }));
+    },
+
+    getLanguage() {
+      return currentLang;
+    },
+
+    syncLangSelect() {
+      const sel = document.getElementById('lang-select');
+      if (!sel) return;
+      Object.entries(LANG_OPTIONS).forEach(([code, meta]) => {
+        const opt = sel.querySelector(`option[value="${code}"]`);
+        if (opt) opt.textContent = `${meta.flag} ${this.t(meta.key)}`;
+      });
+      sel.value = currentLang;
+    },
+
+    bindLangSelect() {
+      const sel = document.getElementById('lang-select');
+      if (!sel) return;
+      if (!sel.dataset.bound) {
+        sel.addEventListener('change', () => {
+          if (sel.value && sel.value !== currentLang) {
+            this.setLanguage(sel.value);
+          }
+        });
+        sel.dataset.bound = '1';
+      }
+      this.syncLangSelect();
+    },
+
+    applyStatic() {
+      document.querySelectorAll('[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = this.t(key);
+      });
+
+      document.querySelectorAll('[data-i18n-placeholder]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-placeholder');
+        if (key) el.placeholder = this.t(key);
+      });
+
+      document.querySelectorAll('[data-i18n-title]').forEach((el) => {
+        const key = el.getAttribute('data-i18n-title');
+        if (key) el.title = this.t(key);
+      });
+
+      document.querySelectorAll('option[data-i18n]').forEach((el) => {
+        const key = el.getAttribute('data-i18n');
+        if (key) el.textContent = this.t(key);
+      });
+
+      document.querySelectorAll('label').forEach((label) => {
+        const span = label.querySelector('span[data-i18n]');
+        if (span) {
+          const key = span.getAttribute('data-i18n');
+          if (key) span.textContent = this.t(key);
+        }
+      });
+
+      const titleKey = document.querySelector('title[data-i18n]')?.getAttribute('data-i18n');
+      if (titleKey) document.title = this.t(titleKey);
+      else if (TRANSLATIONS[currentLang]['app.title']) {
+        document.title = this.t('app.title');
+      }
+      this.syncLangSelect();
+    },
+
+    init() {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      currentLang = TRANSLATIONS[stored] ? stored : DEFAULT_LANG;
+      applyLangAttributes(currentLang);
+      this.applyStatic();
+      this.bindLangSelect();
+    },
+  };
+
+  window.I18n = I18n;
+  window.t = function (key, params) {
+    return I18n.t(key, params);
+  };
+})();
