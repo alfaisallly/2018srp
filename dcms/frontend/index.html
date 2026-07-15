@@ -11,13 +11,24 @@
   <header>
     <h1>DCMS — نظام إدارة مراكز البيانات</h1>
     <div class="header-actions">
+      <div id="header-dc-controls" class="header-dc-controls hidden">
+        <label class="header-filter-label">المركز:
+          <select id="header-dc-filter"><option value="">جميع المراكز</option></select>
+        </label>
+        <div class="view-mode-bar" id="header-view-mode">
+          <button type="button" class="view-mode-btn" data-view="unified" title="عرض مجمّع">⊞ مجمّع</button>
+          <button type="button" class="view-mode-btn" data-view="separate" title="عرض منفرد">▣ منفرد</button>
+          <button type="button" class="view-mode-btn" data-view="compare" title="عرض مقارنة">▥ مقارنة</button>
+        </div>
+      </div>
       <div id="user-info"></div>
       <button id="logout-btn" class="btn-secondary btn-logout hidden">خروج</button>
     </div>
   </header>
 
   <nav>
-    <button class="nav-btn active" data-panel="dashboard">لوحة التحكم</button>
+    <button class="nav-btn" data-panel="dashboard">لوحة التحكم</button>
+    <button class="nav-btn" data-panel="dc-display" data-perm="view">التحكم بالعرض</button>
     <button class="nav-btn" data-panel="devices" data-perm="view">الشبكة</button>
     <button class="nav-btn" data-panel="servers" data-perm="view">السيرفرات</button>
     <button class="nav-btn" data-panel="storage" data-perm="view">التخزين</button>
@@ -47,15 +58,30 @@
     <section id="dashboard-panel" class="panel hidden">
       <div class="stats-grid" id="stats-grid"></div>
 
+      <div class="card dc-view-toolbar">
+        <div class="toolbar">
+          <h2>مراكز البيانات</h2>
+          <div class="toolbar-actions view-mode-bar" id="dashboard-view-mode">
+            <button type="button" class="view-mode-btn" data-view="unified">⊞ عرض مجمّع</button>
+            <button type="button" class="view-mode-btn" data-view="separate">▣ عرض منفرد</button>
+            <button type="button" class="view-mode-btn" data-view="compare">▥ عرض مقارنة</button>
+          </div>
+        </div>
+        <p class="muted dc-hint" id="dc-view-hint">اختر نمط العرض: مجمّع (كل المراكز معاً) أو منفرد (مركز واحد) أو مقارنة (جنباً إلى جنب)</p>
+      </div>
+
+      <div id="dc-unified-view" class="hidden"></div>
+      <div id="dc-compare-view" class="hidden"></div>
+
       <div id="dc-list-view">
         <div class="card">
           <div class="toolbar">
-            <h2>مراكز البيانات</h2>
+            <h2>قائمة المراكز — عرض منفرد</h2>
             <div class="toolbar-actions">
               <button id="show-add-dc" class="btn-secondary hidden">+ إضافة مركز بيانات</button>
             </div>
           </div>
-          <p class="muted dc-hint">اختر مركز بيانات لعرض الشبكة والخوادم والتخزين والمخططات والتنبيهات والتقارير الخاصة به</p>
+          <p class="muted dc-hint">انقر على مركز لعرض تفاصيله (الشبكة، الخوادم، التخزين، المخطط، التنبيهات)</p>
           <div id="add-dc-form" class="sub-form hidden">
             <h3>إضافة مركز بيانات</h3>
             <form id="dc-create-form">
@@ -97,6 +123,34 @@
         </div>
         <div id="dc-tab-content" class="card"></div>
       </div>
+    </section>
+
+    <!-- Display Control -->
+    <section id="dc-display-panel" class="panel hidden">
+      <div class="card">
+        <h2>التحكم بعرض مراكز البيانات</h2>
+        <p class="muted">اختر كيف تريد عرض المراكز في لوحة التحكم وباقي التبويبات — مجمّعة أو منفردة أو مقارنة</p>
+        <div class="display-control-grid">
+          <label>فلتر عام (يُطبّق على الشبكة والسيرفرات والتخزين والتنبيهات)
+            <select id="display-dc-filter"><option value="">جميع المراكز — عرض مجمّع</option></select>
+          </label>
+          <div class="view-mode-bar view-mode-large" id="display-view-mode">
+            <button type="button" class="view-mode-btn view-mode-card" data-view="unified">
+              <strong>⊞ عرض مجمّع</strong>
+              <span>كل المراكز في جداول موحّدة مع عمود المركز</span>
+            </button>
+            <button type="button" class="view-mode-btn view-mode-card" data-view="separate">
+              <strong>▣ عرض منفرد</strong>
+              <span>بطاقات مراكز — انقر لعرض مركز واحد بالتفصيل</span>
+            </button>
+            <button type="button" class="view-mode-btn view-mode-card" data-view="compare">
+              <strong>▥ عرض مقارنة</strong>
+              <span>مقارنة المراكز جنباً إلى جنب في أعمدة</span>
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="dc-display-preview"></div>
     </section>
 
     <!-- Devices -->

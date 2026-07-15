@@ -159,6 +159,12 @@ class DataCenterOverview(BaseModel):
     sensors: list[DataCenterSensorBrief]
 
 
+class CombinedOverview(BaseModel):
+    datacenters: list[DataCenterResponse]
+    combined_summary: DataCenterOverviewSummary
+    overviews: list[DataCenterOverview]
+
+
 class RackCreate(BaseModel):
     name: str
     row: str | None = None

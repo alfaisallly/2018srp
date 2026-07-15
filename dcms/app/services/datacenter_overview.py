@@ -191,3 +191,49 @@ async def get_datacenter_overview(db: AsyncSession, datacenter_id: int) -> dict:
             for s in sensors
         ],
     }
+
+
+async def get_combined_overview(db: AsyncSession) -> dict:
+    result = await db.execute(select(DataCenter).order_by(DataCenter.name))
+    datacenters = list(result.scalars().all())
+    overviews = []
+    combined = {
+        "switches": 0,
+        "firewalls": 0,
+        "routers": 0,
+        "other_devices": 0,
+        "total_devices": 0,
+        "online_devices": 0,
+        "servers": 0,
+        "online_servers": 0,
+        "storage": 0,
+        "online_storage": 0,
+        "open_alerts": 0,
+        "critical_alerts": 0,
+        "network_maps": 0,
+        "total_sensors": 0,
+        "sensors_up": 0,
+        "sensors_warning": 0,
+        "sensors_down": 0,
+    }
+    for dc in datacenters:
+        overview = await get_datacenter_overview(db, dc.id)
+        overviews.append(overview)
+        s = overview["summary"]
+        for key in combined:
+            combined[key] += s.get(key, 0)
+    return {
+        "datacenters": [
+            {
+                "id": d.id,
+                "name": d.name,
+                "location": d.location,
+                "description": d.description,
+                "contact_email": d.contact_email,
+                "created_at": d.created_at,
+            }
+            for d in datacenters
+        ],
+        "combined_summary": combined,
+        "overviews": overviews,
+    }

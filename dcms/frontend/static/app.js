@@ -6,6 +6,9 @@ let currentUser = null;
 let currentPermissions = new Set();
 let currentDcOverview = null;
 let selectedDatacenterId = null;
+let dcViewMode = localStorage.getItem('dcms_view_mode') || 'separate';
+let globalDcFilter = localStorage.getItem('dcms_global_dc_filter') || '';
+let combinedOverviewCache = null;
 
 const ROLE_LABELS = {
   admin: 'مدير النظام',
@@ -14,6 +17,88 @@ const ROLE_LABELS = {
   viewer: 'قراءة فقط',
   custom: 'مخصص',
 };
+
+const VIEW_MODE_HINTS = {
+  unified: 'عرض مجمّع — كل المراكز في جداول موحّدة',
+  separate: 'عرض منفرد — بطاقات مراكز، انقر للتفاصيل',
+  compare: 'عرض مقارنة — المراكز جنباً إلى جنب',
+};
+
+function dcQueryParam() {
+  return globalDcFilter ? `?datacenter_id=${globalDcFilter}` : '';
+}
+
+function getFilteredOverviews() {
+  if (!combinedOverviewCache?.overviews) return [];
+  if (!globalDcFilter) return combinedOverviewCache.overviews;
+  return combinedOverviewCache.overviews.filter(
+    o => String(o.datacenter.id) === String(globalDcFilter)
+  );
+}
+
+function setViewMode(mode) {
+  dcViewMode = mode;
+  localStorage.setItem('dcms_view_mode', mode);
+  syncViewModeUI();
+  if (document.getElementById('dashboard-panel') && !document.getElementById('dashboard-panel').classList.contains('hidden')) {
+    loadDashboard();
+  }
+  if (document.getElementById('dc-display-panel') && !document.getElementById('dc-display-panel').classList.contains('hidden')) {
+    loadDcDisplayPanel();
+  }
+}
+
+function setGlobalDcFilter(value) {
+  globalDcFilter = value || '';
+  localStorage.setItem('dcms_global_dc_filter', globalDcFilter);
+  ['header-dc-filter', 'display-dc-filter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.value = globalDcFilter;
+  });
+  const activePanel = document.querySelector('.nav-btn.active')?.dataset.panel;
+  if (activePanel === 'dashboard') loadDashboard();
+  else if (activePanel === 'dc-display') loadDcDisplayPanel();
+  else if (activePanel === 'devices') loadDevices();
+  else if (activePanel === 'servers') loadServers();
+  else if (activePanel === 'storage') loadStorage();
+  else if (activePanel === 'alerts') loadAlerts();
+  else if (activePanel === 'sensors') loadSensors();
+  else if (activePanel === 'network-map') loadNetworkMap();
+}
+
+function syncViewModeUI() {
+  document.querySelectorAll('.view-mode-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.view === dcViewMode);
+  });
+  const hint = document.getElementById('dc-view-hint');
+  if (hint) {
+    let text = VIEW_MODE_HINTS[dcViewMode] || '';
+    if (globalDcFilter) {
+      const name = combinedOverviewCache?.datacenters?.find(d => String(d.id) === String(globalDcFilter))?.name;
+      if (name) text += ` — مفلتر: ${name}`;
+    }
+    hint.textContent = text;
+  }
+}
+
+async function populateGlobalDcFilters() {
+  const dcs = combinedOverviewCache?.datacenters || await api('/datacenters');
+  const opts = '<option value="">جميع المراكز</option>' +
+    dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  ['header-dc-filter', 'display-dc-filter'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+      el.innerHTML = id === 'display-dc-filter'
+        ? '<option value="">جميع المراكز — عرض مجمّع</option>' + dcs.map(d => `<option value="${d.id}">${d.name} فقط</option>`).join('')
+        : opts;
+      el.value = globalDcFilter;
+    }
+  });
+  ['dev-dc', 'disc-dc', 'srv-dc', 'sto-dc'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  });
+}
 
 const vendorColors = { cisco: '#049fd9', juniper: '#84bd00', fortinet: '#ee3124', generic: '#94a3b8' };
 const statusColors = { online: '#22c55e', offline: '#ef4444', degraded: '#eab308', unknown: '#64748b' };
@@ -64,8 +149,10 @@ function logout() {
   token = null;
   currentUser = null;
   currentPermissions = new Set();
+  combinedOverviewCache = null;
   localStorage.removeItem('dcms_token');
   document.getElementById('logout-btn')?.classList.add('hidden');
+  document.getElementById('header-dc-controls')?.classList.add('hidden');
   showPanel('login');
 }
 
@@ -115,6 +202,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (panel === 'reports') loadReportSelector();
     if (panel === 'users') loadUsers();
     if (panel === 'dashboard') loadDashboard();
+    if (panel === 'dc-display') loadDcDisplayPanel();
     if (panel === 'import-excel') resetExcelImportUI();
   });
 });
@@ -129,18 +217,33 @@ async function initApp() {
   currentPermissions = new Set(user.permission_keys || []);
   document.getElementById('user-info').textContent = `${user.full_name || user.username} (${ROLE_LABELS[user.role] || user.role})`;
   applyPermissionsUI();
+  document.getElementById('header-dc-controls')?.classList.remove('hidden');
+  syncViewModeUI();
+  try {
+    combinedOverviewCache = await api('/datacenters/overview/combined');
+    await populateGlobalDcFilters();
+  } catch (_) {
+    combinedOverviewCache = null;
+  }
   showPanel('dashboard');
   await loadDashboard();
 }
 
 async function loadDashboard() {
-  document.getElementById('dc-list-view').classList.remove('hidden');
   document.getElementById('dc-detail-view').classList.add('hidden');
   selectedDatacenterId = null;
   currentDcOverview = null;
+  syncViewModeUI();
+
+  if (!combinedOverviewCache) {
+    try { combinedOverviewCache = await api('/datacenters/overview/combined'); } catch (_) {}
+  }
+  await populateGlobalDcFilters();
 
   const stats = await api('/reports/dashboard');
-  document.getElementById('stats-grid').innerHTML = `
+  const filterBadge = globalDcFilter
+    ? `<span class="filter-badge">مركز محدد</span>` : '';
+  document.getElementById('stats-grid').innerHTML = filterBadge + `
     <div class="stat-card"><div class="value">${stats.datacenters}</div><div class="label">مراكز البيانات</div></div>
     <div class="stat-card"><div class="value">${stats.total_devices}</div><div class="label">أجهزة الشبكة</div></div>
     <div class="stat-card"><div class="value">${stats.total_servers || 0}</div><div class="label">السيرفرات</div></div>
@@ -150,17 +253,40 @@ async function loadDashboard() {
     <div class="stat-card"><div class="value">${stats.total_sensors || 0}</div><div class="label">الحساسات</div></div>
   `;
 
-  const dcs = await api('/datacenters');
+  const overviews = getFilteredOverviews();
+  document.getElementById('dc-unified-view').classList.add('hidden');
+  document.getElementById('dc-compare-view').classList.add('hidden');
+  document.getElementById('dc-list-view').classList.add('hidden');
+
+  if (dcViewMode === 'unified') {
+    renderUnifiedView('dc-unified-view', overviews);
+    document.getElementById('dc-unified-view').classList.remove('hidden');
+    return;
+  }
+  if (dcViewMode === 'compare' && overviews.length > 1) {
+    renderCompareView('dc-compare-view', overviews);
+    document.getElementById('dc-compare-view').classList.remove('hidden');
+    return;
+  }
+  if (dcViewMode === 'compare' && overviews.length === 1) {
+    openDatacenterDetail(overviews[0].datacenter.id);
+    return;
+  }
+  if (globalDcFilter && overviews.length === 1) {
+    openDatacenterDetail(overviews[0].datacenter.id);
+    return;
+  }
+
+  document.getElementById('dc-list-view').classList.remove('hidden');
+  const dcs = overviews.map(o => o.datacenter);
   if (!dcs.length) {
     document.getElementById('datacenters-grid').innerHTML =
       '<p style="color:var(--muted);grid-column:1/-1">لا توجد مراكز بيانات — أضف مركزاً للبدء</p>';
     return;
   }
-
-  const overviews = await Promise.all(dcs.map(d => api(`/datacenters/${d.id}/overview`).catch(() => null)));
-  document.getElementById('datacenters-grid').innerHTML = dcs.map((d, i) => {
-    const ov = overviews[i];
-    const s = ov?.summary || {};
+  document.getElementById('datacenters-grid').innerHTML = overviews.map(ov => {
+    const d = ov.datacenter;
+    const s = ov.summary || {};
     return `<div class="dc-card" onclick="openDatacenterDetail(${d.id})">
       <h3>${d.name}</h3>
       <p class="dc-meta">${d.location || 'بدون موقع'}${d.description ? ' — ' + d.description : ''}</p>
@@ -174,6 +300,97 @@ async function loadDashboard() {
     </div>`;
   }).join('');
 }
+
+function tagWithDc(items, dcName) {
+  return (items || []).map(i => ({ ...i, datacenter_name: dcName }));
+}
+
+function mergeFromOverviews(overviews, key) {
+  return overviews.flatMap(ov => tagWithDc(ov[key], ov.datacenter.name));
+}
+
+function unifiedTable(headers, rows, extraCols = 1) {
+  if (!rows.length) return `<p class="muted">لا توجد بيانات</p>`;
+  return `<table><thead><tr>${headers}</tr></thead><tbody>${rows.join('')}</tbody></table>`;
+}
+
+function renderUnifiedView(containerId, overviews) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  const sw = mergeFromOverviews(overviews, 'switches');
+  const fw = mergeFromOverviews(overviews, 'firewalls');
+  const srv = mergeFromOverviews(overviews, 'servers');
+  const sto = mergeFromOverviews(overviews, 'storage');
+  const alerts = mergeFromOverviews(overviews, 'alerts');
+
+  const swRows = sw.map(d => `<tr><td>${d.datacenter_name}</td><td>${d.name}</td><td>${d.ip_address}</td><td>${VENDOR_LABELS[d.vendor]||d.vendor}</td><td class="status-${d.status}">${d.status}</td></tr>`);
+  const fwRows = fw.map(d => `<tr><td>${d.datacenter_name}</td><td>${d.name}</td><td>${d.ip_address}</td><td>${VENDOR_LABELS[d.vendor]||d.vendor}</td><td class="status-${d.status}">${d.status}</td></tr>`);
+  const srvRows = srv.map(d => `<tr><td>${d.datacenter_name}</td><td>${d.name}</td><td>${d.ip_address}</td><td>${d.os_type}</td><td class="status-${d.status}">${d.status}</td></tr>`);
+  const stoRows = sto.map(d => `<tr><td>${d.datacenter_name}</td><td>${d.name}</td><td>${d.ip_address}</td><td>${d.vendor}</td><td class="status-${d.status}">${d.status}</td></tr>`);
+  const alertRows = alerts.map(a => `<tr><td>${a.datacenter_name}</td><td>${a.title}</td><td class="severity-${a.severity}">${a.severity}</td><td>${a.status}</td></tr>`);
+
+  el.innerHTML = `<div class="card">
+    <h2>⊞ عرض مجمّع — ${overviews.length} مركز</h2>
+    <div class="unified-section"><h3>🔀 السويجات (${sw.length})</h3>${unifiedTable('<th>المركز</th><th>الاسم</th><th>IP</th><th>المورّد</th><th>الحالة</th>', swRows)}</div>
+    <div class="unified-section"><h3>🛡️ جدران الحماية (${fw.length})</h3>${unifiedTable('<th>المركز</th><th>الاسم</th><th>IP</th><th>المورّد</th><th>الحالة</th>', fwRows)}</div>
+    <div class="unified-section"><h3>🖥️ الخوادم (${srv.length})</h3>${unifiedTable('<th>المركز</th><th>الاسم</th><th>IP</th><th>نظام التشغيل</th><th>الحالة</th>', srvRows)}</div>
+    <div class="unified-section"><h3>💾 التخزين (${sto.length})</h3>${unifiedTable('<th>المركز</th><th>الاسم</th><th>IP</th><th>المورّد</th><th>الحالة</th>', stoRows)}</div>
+    <div class="unified-section"><h3>⚠️ التنبيهات (${alerts.length})</h3>${unifiedTable('<th>المركز</th><th>العنوان</th><th>الخطورة</th><th>الحالة</th>', alertRows)}</div>
+  </div>`;
+}
+
+function renderCompareView(containerId, overviews) {
+  const el = document.getElementById(containerId);
+  if (!el) return;
+  el.innerHTML = `<div class="card"><h2>▥ عرض مقارنة — ${overviews.length} مراكز</h2>
+    <div class="dc-compare-grid">${overviews.map(ov => {
+      const d = ov.datacenter;
+      const s = ov.summary;
+      return `<div class="dc-compare-col">
+        <h3>${d.name}</h3>
+        <p class="muted">${d.location || '—'}</p>
+        <div class="mini-stat"><span>سويجات</span><strong>${s.switches}</strong></div>
+        <div class="mini-stat"><span>جدران حماية</span><strong>${s.firewalls}</strong></div>
+        <div class="mini-stat"><span>خوادم</span><strong>${s.servers}</strong></div>
+        <div class="mini-stat"><span>تخزين</span><strong>${s.storage}</strong></div>
+        <div class="mini-stat"><span>متصل</span><strong class="status-online">${s.online_devices + s.online_servers + s.online_storage}</strong></div>
+        <div class="mini-stat"><span>تنبيهات</span><strong class="severity-warning">${s.open_alerts}</strong></div>
+        <div class="mini-stat"><span>حساسات</span><strong>${s.total_sensors}</strong></div>
+        <br>
+        <button class="btn-sm" onclick="openDatacenterDetail(${d.id})">عرض التفاصيل</button>
+        <button class="btn-sm btn-secondary" onclick="downloadDcReport(${d.id})">تقرير</button>
+      </div>`;
+    }).join('')}</div></div>`;
+}
+
+async function loadDcDisplayPanel() {
+  syncViewModeUI();
+  if (!combinedOverviewCache) {
+    try { combinedOverviewCache = await api('/datacenters/overview/combined'); } catch (_) {}
+  }
+  await populateGlobalDcFilters();
+  const overviews = getFilteredOverviews();
+  const preview = document.getElementById('dc-display-preview');
+  if (dcViewMode === 'unified') {
+    renderUnifiedView('dc-display-preview', overviews);
+    preview.classList.remove('hidden');
+    preview.querySelector('.card')?.classList.add('card');
+  } else if (dcViewMode === 'compare') {
+    renderCompareView('dc-display-preview', overviews);
+  } else {
+    preview.innerHTML = `<div class="card"><h3>معاينة — عرض منفرد</h3><p class="muted">انتقل إلى لوحة التحكم لعرض بطاقات المراكز والنقر للتفاصيل</p>
+      <div class="dc-grid">${overviews.map(ov => `<div class="dc-card" onclick="showPanel('dashboard');openDatacenterDetail(${ov.datacenter.id})">
+        <h3>${ov.datacenter.name}</h3>
+        <p class="dc-meta">${ov.datacenter.location || '—'}</p>
+      </div>`).join('') || '<p class="muted">لا توجد مراكز</p>'}</div></div>`;
+  }
+}
+
+document.querySelectorAll('.view-mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => setViewMode(btn.dataset.view));
+});
+document.getElementById('header-dc-filter')?.addEventListener('change', e => setGlobalDcFilter(e.target.value));
+document.getElementById('display-dc-filter')?.addEventListener('change', e => setGlobalDcFilter(e.target.value));
 
 const DEVICE_TYPE_LABELS = { switch: 'سويج', firewall: 'جدار حماية', router: 'راوتر', other: 'أخرى' };
 const VENDOR_LABELS = { cisco: 'Cisco', juniper: 'Juniper', fortinet: 'Fortinet', generic: 'Generic' };
@@ -199,6 +416,8 @@ async function openDatacenterDetail(dcId) {
   selectedDatacenterId = dcId;
   currentDcOverview = await api(`/datacenters/${dcId}/overview`);
   document.getElementById('dc-list-view').classList.add('hidden');
+  document.getElementById('dc-unified-view').classList.add('hidden');
+  document.getElementById('dc-compare-view').classList.add('hidden');
   document.getElementById('dc-detail-view').classList.remove('hidden');
   const dc = currentDcOverview.datacenter;
   document.getElementById('dc-detail-name').textContent = dc.name;
@@ -360,6 +579,7 @@ document.getElementById('dc-create-form')?.addEventListener('submit', async (e) 
     });
     document.getElementById('add-dc-form').classList.add('hidden');
     document.getElementById('dc-create-form').reset();
+    combinedOverviewCache = await api('/datacenters/overview/combined');
     loadDashboard();
   } catch (err) { alert(err.message); }
 });
@@ -373,7 +593,7 @@ document.querySelectorAll('.dc-tab').forEach(btn => {
 
 async function loadDevices() {
   await populateDatacenterSelects();
-  const devices = await api('/devices');
+  const devices = await api(`/devices${dcQueryParam()}`);
   const tbody = document.querySelector('#devices-table tbody');
   tbody.innerHTML = devices.map(d => `
     <tr>
@@ -549,7 +769,7 @@ async function pollDevice(id) {
 }
 
 async function loadNetworkMap() {
-  const maps = await api('/network-maps');
+  const maps = await api(`/network-maps${dcQueryParam()}`);
   const selector = document.getElementById('map-selector');
   selector.innerHTML = maps.map(m => `<option value="${m.id}">${m.name}</option>`).join('')
     || '<option value="">—</option>';
@@ -618,7 +838,7 @@ document.getElementById('refresh-map').addEventListener('click', loadNetworkMap)
 document.getElementById('refresh-devices').addEventListener('click', loadDevices);
 
 async function loadAlerts() {
-  const alerts = await api('/alerts');
+  const alerts = await api(`/alerts${dcQueryParam()}`);
   const tbody = document.querySelector('#alerts-table tbody');
   tbody.innerHTML = alerts.map(a => `
     <tr>
@@ -694,7 +914,7 @@ document.getElementById('show-server-guide').addEventListener('click', async () 
 
 async function loadServers() {
   await populateDatacenterSelects();
-  const servers = await api('/servers');
+  const servers = await api(`/servers${dcQueryParam()}`);
   document.querySelector('#servers-table tbody').innerHTML = servers.map(s => `
     <tr>
       <td>${s.name}</td><td>${s.ip_address}</td><td>${s.os_type}</td><td>${s.server_role}</td>
@@ -783,7 +1003,7 @@ document.getElementById('show-storage-guide').addEventListener('click', async ()
 
 async function loadStorage() {
   await populateDatacenterSelects();
-  const items = await api('/storage');
+  const items = await api(`/storage${dcQueryParam()}`);
   document.querySelector('#storage-table tbody').innerHTML = items.map(s => {
     const usage = s.total_capacity_tb && s.used_capacity_tb
       ? `${((s.used_capacity_tb / s.total_capacity_tb) * 100).toFixed(1)}%` : '—';
@@ -965,7 +1185,7 @@ document.getElementById('refresh-users').addEventListener('click', loadUsers);
 // --- Sensors (PRTG-style) ---
 
 async function loadSensors() {
-  const dcId = document.getElementById('sensor-dc-filter').value;
+  const dcId = document.getElementById('sensor-dc-filter').value || globalDcFilter;
   const status = document.getElementById('sensor-status-filter').value;
   let path = '/sensors?';
   if (dcId) path += `datacenter_id=${dcId}&`;
@@ -1212,6 +1432,7 @@ document.getElementById('excel-apply-btn')?.addEventListener('click', async () =
 window.openDatacenterDetail = openDatacenterDetail;
 window.ackAlert = ackAlert;
 window.resolveAlert = resolveAlert;
+window.downloadDcReport = downloadDcReport;
 
 if (token) {
   initApp().catch(() => logout());
