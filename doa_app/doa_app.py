@@ -8,6 +8,7 @@ and the MUSIC spectrum plot.
 Designer: Eng. Ahmed Majed  /  المهندس أحمد ماجد
 """
 
+import re
 import sys
 import tkinter as tk
 from tkinter import ttk, messagebox
@@ -59,8 +60,13 @@ class DoaApp(tk.Tk):
         ctrl.pack(side=tk.LEFT, fill=tk.Y, padx=10, pady=10)
 
         self.vars = {}
-        self._add_entry(ctrl, "angles", "Target angles (deg), comma-separated\nزوايا الأهداف (بالدرجات)",
+        self._add_entry(ctrl, "angles",
+                        "Target angles (deg) - separate by comma or space\n"
+                        "زوايا الأهداف (بالدرجات) - افصل بفاصلة أو مسافة",
                         "-50, -20, 5, 25, 60")
+        tk.Button(ctrl, text="Clear angles  /  مسح الزوايا",
+                  command=lambda: self.vars["angles"].set("")).pack(fill=tk.X,
+                                                                    pady=(0, 8))
         self._add_entry(ctrl, "snr", "SNR (dB)", "10")
         self._add_entry(ctrl, "snapshots", "Snapshots  /  عدد اللقطات", "500")
         self._add_entry(ctrl, "M", "Coprime M", "5")
@@ -95,13 +101,26 @@ class DoaApp(tk.Tk):
     def _add_entry(self, parent, key, label, default):
         tk.Label(parent, text=label, justify="left").pack(anchor="w")
         var = tk.StringVar(value=default)
-        ttk.Entry(parent, textvariable=var, width=32).pack(fill=tk.X, pady=(0, 8))
+        entry = ttk.Entry(parent, textvariable=var, width=32)
+        entry.pack(fill=tk.X, pady=(0, 8))
+        # tkinter's default Ctrl+A moves the cursor; make it select-all instead.
+        entry.bind("<Control-a>", lambda e: (e.widget.select_range(0, "end"),
+                                             e.widget.icursor("end"), "break")[-1])
+        entry.bind("<Control-A>", lambda e: (e.widget.select_range(0, "end"),
+                                             e.widget.icursor("end"), "break")[-1])
         self.vars[key] = var
 
     # ---------------- logic ----------------
     def _parse_inputs(self):
-        raw = self.vars["angles"].get().replace("،", ",")
-        angles = [float(a) for a in raw.replace(";", ",").split(",") if a.strip() != ""]
+        raw = self.vars["angles"].get()
+        # Accept commas, semicolons, Arabic commas, or whitespace as separators.
+        tokens = [t for t in re.split(r"[\s,;،]+", raw.strip()) if t != ""]
+        try:
+            angles = [float(t) for t in tokens]
+        except ValueError:
+            raise ValueError(
+                "Could not read the target angles. Enter numbers separated by "
+                "commas or spaces, e.g.  -50, -20, 5, 25, 60")
         if not angles:
             raise ValueError("Please enter at least one target angle.")
         if any(abs(a) >= 90 for a in angles):
