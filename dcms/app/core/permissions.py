@@ -10,6 +10,8 @@ PERMISSION_LABELS: dict[Permission, dict[str, str]] = {
     Permission.MANAGE_NETWORK_MAPS: {"label": "تعديل خرائط الشبكة", "group": "تعديل", "description": "إنشاء وتعديل خرائط التوبولوجيا"},
     Permission.MANAGE_ALERTS: {"label": "إدارة التنبيهات", "group": "تعديل", "description": "حل وتعديل التنبيهات"},
     Permission.MANAGE_USERS: {"label": "إدارة المستخدمين", "group": "إدارة", "description": "إنشاء وتعديل المستخدمين والصلاحيات"},
+    Permission.MANAGE_IPAM: {"label": "إدارة عناوين IP", "group": "تعديل", "description": "إدارة البادئات والتخصيصات IPAM"},
+    Permission.MANAGE_INTEGRATIONS: {"label": "إدارة التكاملات", "group": "تعديل", "description": "ربط PRTG وVMware والأنظمة الخارجية"},
 }
 
 ROLE_TEMPLATES: dict[str, dict] = {
@@ -28,6 +30,8 @@ ROLE_TEMPLATES: dict[str, dict] = {
             Permission.MANAGE_DATACENTERS,
             Permission.MANAGE_NETWORK_MAPS,
             Permission.MANAGE_ALERTS,
+            Permission.MANAGE_IPAM,
+            Permission.MANAGE_INTEGRATIONS,
         ],
     },
     "operator": {
@@ -40,6 +44,8 @@ ROLE_TEMPLATES: dict[str, dict] = {
             Permission.MANAGE_STORAGE,
             Permission.MANAGE_ALERTS,
             Permission.MANAGE_NETWORK_MAPS,
+            Permission.MANAGE_IPAM,
+            Permission.MANAGE_INTEGRATIONS,
         ],
     },
     "viewer": {

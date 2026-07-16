@@ -121,6 +121,8 @@ class Permission(str, enum.Enum):
     MANAGE_NETWORK_MAPS = "manage_network_maps"
     MANAGE_SERVERS = "manage_servers"
     MANAGE_STORAGE = "manage_storage"
+    MANAGE_IPAM = "manage_ipam"
+    MANAGE_INTEGRATIONS = "manage_integrations"
 
 
 ROLE_PERMISSIONS: dict[str, set[Permission]] = {
@@ -133,6 +135,8 @@ ROLE_PERMISSIONS: dict[str, set[Permission]] = {
         Permission.MANAGE_ALERTS,
         Permission.VIEW_REPORTS,
         Permission.MANAGE_NETWORK_MAPS,
+        Permission.MANAGE_IPAM,
+        Permission.MANAGE_INTEGRATIONS,
     },
     "viewer": {Permission.VIEW, Permission.VIEW_REPORTS},
 }
@@ -170,6 +174,7 @@ class DataCenter(Base):
     servers: Mapped[list["Server"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
     storage_systems: Mapped[list["StorageSystem"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
     network_maps: Mapped[list["NetworkMap"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
+    ip_prefixes: Mapped[list["IpPrefix"]] = relationship(back_populates="datacenter", cascade="all, delete-orphan")
 
 
 class Rack(Base):
@@ -220,6 +225,9 @@ class Device(Base):
         back_populates="device",
         foreign_keys="Sensor.device_id",
         cascade="all, delete-orphan",
+    )
+    config_backups: Mapped[list["DeviceConfigBackup"]] = relationship(
+        back_populates="device", cascade="all, delete-orphan"
     )
 
 
@@ -460,4 +468,87 @@ class AuditLog(Base):
     resource_type: Mapped[str] = mapped_column(String(64))
     resource_id: Mapped[int | None] = mapped_column(Integer)
     details: Mapped[dict | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class IpAddressStatus(str, enum.Enum):
+    FREE = "free"
+    RESERVED = "reserved"
+    ASSIGNED = "assigned"
+    DHCP = "dhcp"
+
+
+class IntegrationType(str, enum.Enum):
+    PRTG = "prtg"
+    VMWARE = "vmware"
+
+
+class IpPrefix(Base):
+    __tablename__ = "ip_prefixes"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datacenter_id: Mapped[int] = mapped_column(ForeignKey("datacenters.id", ondelete="CASCADE"), index=True)
+    cidr: Mapped[str] = mapped_column(String(64), index=True)
+    vlan: Mapped[int | None] = mapped_column(Integer)
+    gateway: Mapped[str | None] = mapped_column(String(45))
+    description: Mapped[str | None] = mapped_column(String(255))
+    dns_servers: Mapped[list | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    datacenter: Mapped["DataCenter"] = relationship(back_populates="ip_prefixes")
+    addresses: Mapped[list["IpAddress"]] = relationship(back_populates="prefix", cascade="all, delete-orphan")
+
+    __table_args__ = (UniqueConstraint("datacenter_id", "cidr", name="uq_ip_prefix_dc_cidr"),)
+
+
+class IpAddress(Base):
+    __tablename__ = "ip_addresses"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    prefix_id: Mapped[int] = mapped_column(ForeignKey("ip_prefixes.id", ondelete="CASCADE"), index=True)
+    address: Mapped[str] = mapped_column(String(45), index=True)
+    status: Mapped[IpAddressStatus] = mapped_column(Enum(IpAddressStatus), default=IpAddressStatus.FREE)
+    hostname: Mapped[str | None] = mapped_column(String(255))
+    asset_type: Mapped[str | None] = mapped_column(String(32))
+    asset_id: Mapped[int | None] = mapped_column(Integer)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"))
+    notes: Mapped[str | None] = mapped_column(String(255))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    prefix: Mapped["IpPrefix"] = relationship(back_populates="addresses")
+    device: Mapped["Device | None"] = relationship()
+
+    __table_args__ = (UniqueConstraint("prefix_id", "address", name="uq_ip_address_prefix_addr"),)
+
+
+class DeviceConfigBackup(Base):
+    __tablename__ = "device_config_backups"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    protocol: Mapped[ProtocolType] = mapped_column(Enum(ProtocolType))
+    content: Mapped[str] = mapped_column(Text)
+    content_hash: Mapped[str] = mapped_column(String(64), index=True)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0)
+    collected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), index=True)
+
+    device: Mapped["Device"] = relationship(back_populates="config_backups")
+
+
+class IntegrationEndpoint(Base):
+    __tablename__ = "integration_endpoints"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datacenter_id: Mapped[int | None] = mapped_column(ForeignKey("datacenters.id", ondelete="SET NULL"), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    integration_type: Mapped[IntegrationType] = mapped_column(Enum(IntegrationType))
+    base_url: Mapped[str] = mapped_column(String(512))
+    username: Mapped[str | None] = mapped_column(String(128))
+    api_token: Mapped[str | None] = mapped_column(String(512))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    extra: Mapped[dict | None] = mapped_column(JSONB)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_sync_status: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

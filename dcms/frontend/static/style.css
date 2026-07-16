@@ -942,3 +942,52 @@ textarea {
   padding: 0.5rem;
   font-family: inherit;
 }
+
+.capabilities-section { margin-bottom: 1.5rem; }
+.capabilities-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+.capability-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem;
+  position: relative;
+}
+.capability-card.active { border-color: var(--primary); }
+.capability-icon { font-size: 1.75rem; margin-bottom: 0.5rem; }
+.capability-card h4 { font-size: 0.95rem; margin-bottom: 0.35rem; }
+.capability-badge {
+  display: inline-block;
+  margin-top: 0.5rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+}
+.badge-active { background: rgba(34, 197, 94, 0.2); color: #22c55e; }
+.badge-ready { background: rgba(100, 116, 139, 0.2); color: var(--muted); }
+.config-view {
+  margin-top: 1rem;
+  max-height: 400px;
+  overflow: auto;
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  direction: ltr;
+  text-align: left;
+}
+.info-box {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  padding: 0.75rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+.data-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+.data-table th, .data-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); text-align: right; }
+html[dir="ltr"] .data-table th, html[dir="ltr"] .data-table td { text-align: left; }

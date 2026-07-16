@@ -2,7 +2,21 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
-from app.models import AlertSeverity, AlertStatus, DeviceStatus, DeviceType, Permission, ProtocolType, ServerOSType, ServerRole, StorageType, StorageVendor, VendorType
+from app.models import (
+    AlertSeverity,
+    AlertStatus,
+    DeviceStatus,
+    DeviceType,
+    IntegrationType,
+    IpAddressStatus,
+    Permission,
+    ProtocolType,
+    ServerOSType,
+    ServerRole,
+    StorageType,
+    StorageVendor,
+    VendorType,
+)
 
 
 class TokenResponse(BaseModel):
@@ -517,3 +531,151 @@ class SensorHistoryPoint(BaseModel):
 class SensorTemplatesResponse(BaseModel):
     templates: dict
     status_colors: dict
+
+
+class IpPrefixCreate(BaseModel):
+    datacenter_id: int
+    cidr: str
+    vlan: int | None = None
+    gateway: str | None = None
+    description: str | None = None
+    dns_servers: list[str] | None = None
+
+
+class IpPrefixUpdate(BaseModel):
+    vlan: int | None = None
+    gateway: str | None = None
+    description: str | None = None
+    dns_servers: list[str] | None = None
+
+
+class IpPrefixResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    datacenter_id: int
+    cidr: str
+    vlan: int | None
+    gateway: str | None
+    description: str | None
+    dns_servers: list | None
+    created_at: datetime
+
+
+class IpAddressResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    prefix_id: int
+    address: str
+    status: IpAddressStatus
+    hostname: str | None
+    asset_type: str | None
+    asset_id: int | None
+    device_id: int | None
+    notes: str | None
+    updated_at: datetime
+
+
+class IpAddressUpdate(BaseModel):
+    status: IpAddressStatus | None = None
+    hostname: str | None = None
+    notes: str | None = None
+
+
+class IpPrefixUtilization(BaseModel):
+    total: int
+    assigned: int
+    reserved: int
+    free: int
+    utilization_pct: float
+
+
+class IpConflictItem(BaseModel):
+    ip_address: str
+    assets: list[dict]
+
+
+class IpSyncResult(BaseModel):
+    created: int
+    updated: int
+    total_hosts: int
+
+
+class ConfigBackupResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device_id: int
+    protocol: ProtocolType
+    content_hash: str
+    size_bytes: int
+    collected_at: datetime
+
+
+class ConfigBackupDetail(ConfigBackupResponse):
+    content: str
+
+
+class ConfigBackupRunResult(BaseModel):
+    success: int
+    unchanged: int
+    failed: int
+    errors: list[str] = Field(default_factory=list)
+
+
+class IntegrationCreate(BaseModel):
+    datacenter_id: int | None = None
+    name: str
+    integration_type: IntegrationType
+    base_url: str
+    username: str | None = None
+    api_token: str | None = None
+    enabled: bool = True
+    extra: dict | None = None
+
+
+class IntegrationUpdate(BaseModel):
+    datacenter_id: int | None = None
+    name: str | None = None
+    base_url: str | None = None
+    username: str | None = None
+    api_token: str | None = None
+    enabled: bool | None = None
+    extra: dict | None = None
+
+
+class IntegrationResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    datacenter_id: int | None
+    name: str
+    integration_type: IntegrationType
+    base_url: str
+    username: str | None
+    enabled: bool
+    extra: dict | None
+    last_sync_at: datetime | None
+    last_sync_status: str | None
+    created_at: datetime
+
+
+class IntegrationTestResult(BaseModel):
+    ok: bool
+    version: str | None = None
+    message: str
+
+
+class CapabilityModule(BaseModel):
+    id: str
+    icon: str
+    title_key: str
+    description_key: str
+    enabled: bool
+    active: bool
+
+
+class CapabilitiesResponse(BaseModel):
+    modules: list[CapabilityModule]
+    metrics: dict[str, int]

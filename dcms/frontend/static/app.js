@@ -63,6 +63,10 @@ function applyPermissionsUI() {
   document.getElementById('download-report')?.classList.toggle('hidden', !hasPerm('view_reports'));
   document.getElementById('seed-sensors')?.classList.toggle('hidden', !canManage('manage_devices'));
   document.getElementById('show-add-dc')?.classList.toggle('hidden', !hasPerm('manage_datacenters'));
+  document.getElementById('show-add-prefix')?.classList.toggle('hidden', !hasPerm('manage_ipam'));
+  document.getElementById('show-add-integration')?.classList.toggle('hidden', !hasPerm('manage_integrations'));
+  document.getElementById('sync-all-integrations')?.classList.toggle('hidden', !hasPerm('manage_integrations'));
+  document.getElementById('run-all-backups')?.classList.toggle('hidden', !hasPerm('manage_devices'));
 }
 
 function logout() {
@@ -122,6 +126,9 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (panel === 'reports') loadReportSelector();
     if (panel === 'users') loadUsers();
     if (panel === 'dashboard') loadDashboard();
+    if (panel === 'ipam') loadIpam();
+    if (panel === 'backups') loadBackups();
+    if (panel === 'integrations') loadIntegrations();
     if (panel === 'import-excel') resetExcelImportUI();
   });
 });
@@ -152,6 +159,9 @@ function refreshCurrentPanel() {
   else if (activePanel === 'network-map') loadNetworkMap();
   else if (activePanel === 'reports') loadReportSelector();
   else if (activePanel === 'users') loadUsers();
+  else if (activePanel === 'ipam') loadIpam();
+  else if (activePanel === 'backups') loadBackups();
+  else if (activePanel === 'integrations') loadIntegrations();
   else if (activePanel === 'import-excel') {
     if (excelPreviewData) renderExcelPreview(excelPreviewData);
     else resetExcelImportUI();
@@ -192,6 +202,8 @@ async function loadDashboard() {
     <div class="stat-card"><div class="value">${stats.open_alerts}</div><div class="label">${t('stats.open_alerts')}</div></div>
     <div class="stat-card"><div class="value">${stats.total_sensors || 0}</div><div class="label">${t('stats.sensors')}</div></div>
   `;
+
+  await loadCapabilities();
 
   const dcs = await api('/datacenters');
   if (!dcs.length) {
@@ -1326,6 +1338,255 @@ document.getElementById('seed-sensors')?.addEventListener('click', async () => {
   } catch (err) { alert(err.message); }
 });
 
+// --- Platform Capabilities ---
+async function loadCapabilities() {
+  const section = document.getElementById('capabilities-section');
+  const grid = document.getElementById('capabilities-grid');
+  if (!section || !grid) return;
+  try {
+    const data = await api('/platform/capabilities');
+    section.classList.remove('hidden');
+    grid.innerHTML = (data.modules || []).map(m => `
+      <div class="capability-card ${m.active ? 'active' : ''}">
+        <div class="capability-icon">${m.icon}</div>
+        <h4>${t(m.title_key)}</h4>
+        <p class="muted">${t(m.description_key)}</p>
+        <span class="capability-badge ${m.active ? 'badge-active' : 'badge-ready'}">${m.active ? t('capabilities.active') : t('capabilities.ready')}</span>
+      </div>
+    `).join('');
+  } catch {
+    section.classList.add('hidden');
+  }
+}
+
+// --- IPAM ---
+let selectedPrefixId = null;
+const ipamStatusLabel = (s) => t(`ipam.status.${s}`) === `ipam.status.${s}` ? s : t(`ipam.status.${s}`);
+
+async function loadIpam() {
+  document.getElementById('ipam-conflicts')?.classList.add('hidden');
+  const prefixes = await api('/ipam/prefixes');
+  const dcs = await api('/datacenters');
+  const dcMap = Object.fromEntries(dcs.map(d => [d.id, d.name]));
+  const list = document.getElementById('ipam-prefix-list');
+  if (!prefixes.length) {
+    list.innerHTML = `<p class="muted">${t('ipam.no_prefixes')}</p>`;
+    document.getElementById('ipam-address-panel')?.classList.add('hidden');
+    return;
+  }
+  list.innerHTML = `<table class="data-table"><thead><tr>
+    <th>${t('ipam.cidr')}</th><th>${t('ipam.datacenter')}</th><th>${t('ipam.vlan')}</th><th>${t('common.action')}</th>
+  </tr></thead><tbody>${prefixes.map(p => `
+    <tr>
+      <td><strong>${p.cidr}</strong>${p.description ? `<br><span class="muted">${p.description}</span>` : ''}</td>
+      <td>${dcMap[p.datacenter_id] || p.datacenter_id}</td>
+      <td>${p.vlan || '—'}</td>
+      <td><button class="btn-secondary" onclick="openIpamPrefix(${p.id}, '${p.cidr}')">${t('common.view')}</button></td>
+    </tr>`).join('')}</tbody></table>`;
+
+  const dcSel = document.getElementById('prefix-dc');
+  if (dcSel && !dcSel.options.length) {
+    dcSel.innerHTML = dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  }
+}
+
+async function openIpamPrefix(prefixId, cidr) {
+  selectedPrefixId = prefixId;
+  const panel = document.getElementById('ipam-address-panel');
+  panel?.classList.remove('hidden');
+  document.getElementById('ipam-address-title').textContent = cidr;
+  const util = await api(`/ipam/prefixes/${prefixId}/utilization`);
+  document.getElementById('ipam-utilization').innerHTML = `
+    <div class="stat-card"><div class="value">${util.utilization_pct}%</div><div class="label">${t('ipam.utilization', { pct: util.utilization_pct, assigned: util.assigned, total: util.total })}</div></div>
+    <div class="stat-card"><div class="value">${util.free}</div><div class="label">${t('ipam.status.free')}</div></div>
+    <div class="stat-card"><div class="value">${util.reserved}</div><div class="label">${t('ipam.status.reserved')}</div></div>`;
+  const addresses = await api(`/ipam/prefixes/${prefixId}/addresses`);
+  document.querySelector('#ipam-address-table tbody').innerHTML = addresses.map(a => `
+    <tr>
+      <td>${a.address}</td>
+      <td>${ipamStatusLabel(a.status)}</td>
+      <td>${a.hostname || '—'}</td>
+      <td>${a.asset_type ? `${a.asset_type} #${a.asset_id || ''}` : '—'}</td>
+      <td>${hasPerm('manage_ipam') ? `<select onchange="updateIpAddress(${a.id}, this.value)">
+        <option value="free" ${a.status === 'free' ? 'selected' : ''}>${t('ipam.status.free')}</option>
+        <option value="reserved" ${a.status === 'reserved' ? 'selected' : ''}>${t('ipam.status.reserved')}</option>
+        <option value="assigned" ${a.status === 'assigned' ? 'selected' : ''}>${t('ipam.status.assigned')}</option>
+        <option value="dhcp" ${a.status === 'dhcp' ? 'selected' : ''}>${t('ipam.status.dhcp')}</option>
+      </select>` : '—'}</td>
+    </tr>`).join('');
+}
+
+async function updateIpAddress(id, status) {
+  await api(`/ipam/addresses/${id}`, { method: 'PATCH', body: { status } });
+  if (selectedPrefixId) {
+    const title = document.getElementById('ipam-address-title')?.textContent;
+    await openIpamPrefix(selectedPrefixId, title);
+  }
+}
+
+document.getElementById('show-add-prefix')?.addEventListener('click', () => {
+  document.getElementById('add-prefix-form')?.classList.remove('hidden');
+});
+document.getElementById('cancel-add-prefix')?.addEventListener('click', () => {
+  document.getElementById('add-prefix-form')?.classList.add('hidden');
+});
+document.getElementById('prefix-create-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  await api('/ipam/prefixes', {
+    method: 'POST',
+    body: {
+      datacenter_id: Number(document.getElementById('prefix-dc').value),
+      cidr: document.getElementById('prefix-cidr').value,
+      vlan: document.getElementById('prefix-vlan').value ? Number(document.getElementById('prefix-vlan').value) : null,
+      gateway: document.getElementById('prefix-gateway').value || null,
+      description: document.getElementById('prefix-desc').value || null,
+    },
+  });
+  document.getElementById('add-prefix-form')?.classList.add('hidden');
+  await loadIpam();
+});
+document.getElementById('refresh-ipam')?.addEventListener('click', loadIpam);
+document.getElementById('ipam-sync-prefix')?.addEventListener('click', async () => {
+  if (!selectedPrefixId) return;
+  await api(`/ipam/prefixes/${selectedPrefixId}/sync`, { method: 'POST' });
+  const title = document.getElementById('ipam-address-title')?.textContent;
+  await openIpamPrefix(selectedPrefixId, title);
+});
+document.getElementById('ipam-sync-conflicts')?.addEventListener('click', async () => {
+  const conflicts = await api('/ipam/conflicts');
+  const box = document.getElementById('ipam-conflicts');
+  if (!conflicts.length) {
+    box.textContent = t('ipam.no_conflicts');
+    box.classList.remove('hidden');
+    box.classList.remove('error-box');
+    box.classList.add('info-box');
+    return;
+  }
+  box.innerHTML = `<strong>${t('ipam.conflicts_found', { count: conflicts.length })}</strong><ul>${conflicts.map(c =>
+    `<li>${c.ip_address}: ${c.assets.map(a => `${a.name} (${a.type})`).join(', ')}</li>`).join('')}</ul>`;
+  box.classList.remove('hidden');
+  box.classList.add('error-box');
+});
+
+// --- Config Backups ---
+let deviceNameMap = {};
+
+async function loadBackups() {
+  const [eligible, backups, devices] = await Promise.all([
+    api('/backups/devices/eligible'),
+    api('/backups'),
+    api('/devices'),
+  ]);
+  deviceNameMap = Object.fromEntries(devices.map(d => [d.id, d.name]));
+  const eligBody = document.querySelector('#eligible-devices-table tbody');
+  eligBody.innerHTML = eligible.length ? eligible.map(d => `
+    <tr>
+      <td>${d.name}</td><td>${vendorLabel(d.vendor)}</td><td>${d.ip_address}</td>
+      <td>${d.has_ssh ? '✓' : '—'}</td>
+      <td>${hasPerm('manage_devices') && d.has_ssh ? `<button onclick="backupDeviceNow(${d.id})">${t('backups.backup_now')}</button>` : '—'}</td>
+    </tr>`).join('') : `<tr><td colspan="5" class="muted">${t('backups.no_eligible')}</td></tr>`;
+
+  document.querySelector('#backups-table tbody').innerHTML = backups.length ? backups.map(b => `
+    <tr>
+      <td>${b.id}</td><td>${deviceNameMap[b.device_id] || b.device_id}</td>
+      <td><code>${b.content_hash.slice(0, 12)}…</code></td>
+      <td>${(b.size_bytes / 1024).toFixed(1)} KB</td>
+      <td>${localeDate(b.collected_at)}</td>
+      <td><button class="btn-secondary" onclick="viewBackup(${b.id})">${t('backups.view')}</button></td>
+    </tr>`).join('') : `<tr><td colspan="6" class="muted">—</td></tr>`;
+}
+
+async function backupDeviceNow(deviceId) {
+  try {
+    await api(`/backups/devices/${deviceId}`, { method: 'POST' });
+    await loadBackups();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function viewBackup(id) {
+  const data = await api(`/backups/${id}`);
+  const el = document.getElementById('backup-content-view');
+  el.textContent = data.content;
+  el.classList.remove('hidden');
+}
+
+document.getElementById('run-all-backups')?.addEventListener('click', async () => {
+  const result = await api('/backups/run-all', { method: 'POST' });
+  alert(t('backups.run_result', result));
+  await loadBackups();
+});
+document.getElementById('refresh-backups')?.addEventListener('click', loadBackups);
+
+// --- Integrations ---
+async function loadIntegrations() {
+  const items = await api('/integrations');
+  const dcs = await api('/datacenters');
+  const intDc = document.getElementById('int-dc');
+  if (intDc && intDc.options.length <= 1) {
+    intDc.innerHTML = `<option value="">—</option>` + dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  }
+  document.querySelector('#integrations-table tbody').innerHTML = items.length ? items.map(i => `
+    <tr>
+      <td>${i.name}</td><td>${i.integration_type.toUpperCase()}</td><td>${i.base_url}</td>
+      <td>${i.last_sync_at ? localeDate(i.last_sync_at) : '—'}</td>
+      <td>${i.last_sync_status || (i.enabled ? '—' : 'disabled')}</td>
+      <td>${hasPerm('manage_integrations') ? `
+        <button class="btn-secondary" onclick="testIntegration(${i.id})">${t('integrations.test')}</button>
+        <button onclick="syncIntegration(${i.id})">${t('integrations.sync')}</button>` : '—'}</td>
+    </tr>`).join('') : `<tr><td colspan="6" class="muted">${t('integrations.no_items')}</td></tr>`;
+}
+
+async function testIntegration(id) {
+  try {
+    const r = await api(`/integrations/${id}/test`, { method: 'POST' });
+    alert(r.ok ? `${t('integrations.test_ok')}: ${r.message}` : `${t('integrations.test_fail')}: ${r.message}`);
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+async function syncIntegration(id) {
+  try {
+    await api(`/integrations/${id}/sync`, { method: 'POST' });
+    alert(t('integrations.sync_ok'));
+    await loadIntegrations();
+  } catch (err) {
+    alert(err.message);
+  }
+}
+
+document.getElementById('show-add-integration')?.addEventListener('click', () => {
+  document.getElementById('add-integration-form')?.classList.remove('hidden');
+});
+document.getElementById('cancel-add-integration')?.addEventListener('click', () => {
+  document.getElementById('add-integration-form')?.classList.add('hidden');
+});
+document.getElementById('integration-create-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const dcVal = document.getElementById('int-dc').value;
+  await api('/integrations', {
+    method: 'POST',
+    body: {
+      name: document.getElementById('int-name').value,
+      integration_type: document.getElementById('int-type').value,
+      base_url: document.getElementById('int-url').value,
+      datacenter_id: dcVal ? Number(dcVal) : null,
+      username: document.getElementById('int-username').value || null,
+      api_token: document.getElementById('int-token').value || null,
+    },
+  });
+  document.getElementById('add-integration-form')?.classList.add('hidden');
+  await loadIntegrations();
+});
+document.getElementById('sync-all-integrations')?.addEventListener('click', async () => {
+  await api('/integrations/sync-all', { method: 'POST' });
+  alert(t('integrations.sync_ok'));
+  await loadIntegrations();
+});
+document.getElementById('refresh-integrations')?.addEventListener('click', loadIntegrations);
+
 // --- Excel Import ---
 let excelSelectedFile = null;
 let excelPreviewData = null;
@@ -1474,6 +1735,12 @@ window.switchDcTab = switchDcTab;
 window.ackAlert = ackAlert;
 window.resolveAlert = resolveAlert;
 window.downloadDcReport = downloadDcReport;
+window.openIpamPrefix = openIpamPrefix;
+window.updateIpAddress = updateIpAddress;
+window.backupDeviceNow = backupDeviceNow;
+window.viewBackup = viewBackup;
+window.testIntegration = testIntegration;
+window.syncIntegration = syncIntegration;
 
 if (token) {
   initApp().catch(() => logout());

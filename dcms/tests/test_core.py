@@ -7,6 +7,8 @@ def test_role_permissions():
     assert Permission.MANAGE_USERS in ROLE_PERMISSIONS["admin"]
     assert Permission.MANAGE_USERS not in ROLE_PERMISSIONS["viewer"]
     assert Permission.VIEW in ROLE_PERMISSIONS["operator"]
+    assert Permission.MANAGE_IPAM in ROLE_PERMISSIONS["operator"]
+    assert Permission.MANAGE_INTEGRATIONS in ROLE_PERMISSIONS["operator"]
 
 
 def test_vendor_adapters():

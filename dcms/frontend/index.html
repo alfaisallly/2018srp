@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="app.title">DCMS - إدارة مراكز البيانات</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=5">
+  <link rel="stylesheet" href="/static/style.css?v=6">
 </head>
 <body>
   <div class="lang-switcher lang-switcher-corner" id="lang-switcher">
@@ -31,6 +31,9 @@
     <button class="nav-btn" data-panel="sensors" data-perm="view" data-i18n="nav.sensors">الحساسات</button>
     <button class="nav-btn" data-panel="alerts" data-perm="view" data-i18n="nav.alerts">التنبيهات</button>
     <button class="nav-btn" data-panel="reports" data-perm="view_reports" data-i18n="nav.reports">التقارير</button>
+    <button class="nav-btn" data-panel="ipam" data-perm="view" data-i18n="nav.ipam">IPAM</button>
+    <button class="nav-btn" data-panel="backups" data-perm="view" data-i18n="nav.backups">النسخ الاحتياطي</button>
+    <button class="nav-btn" data-panel="integrations" data-perm="view" data-i18n="nav.integrations">التكاملات</button>
     <button class="nav-btn" data-panel="import-excel" data-perm="manage_devices" id="nav-import" data-i18n="nav.import_excel">استيراد Excel</button>
     <button class="nav-btn hidden" data-panel="users" data-perm="manage_users" id="nav-users" data-i18n="nav.users">المستخدمين</button>
   </nav>
@@ -57,6 +60,12 @@
     <!-- Dashboard -->
     <section id="dashboard-panel" class="panel hidden">
       <div class="stats-grid" id="stats-grid"></div>
+
+      <div id="capabilities-section" class="card capabilities-section hidden">
+        <h2 data-i18n="capabilities.title">قدرات المنصة</h2>
+        <p class="muted" data-i18n="capabilities.subtitle">نظام متكامل لإدارة مراكز البيانات والشبكة والمراقبة</p>
+        <div id="capabilities-grid" class="capabilities-grid"></div>
+      </div>
 
       <div id="dc-list-view">
         <div class="card">
@@ -521,6 +530,126 @@
       </div>
     </section>
 
+    <!-- IPAM -->
+    <section id="ipam-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="ipam.title">إدارة عناوين IP (IPAM)</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-prefix" class="btn-secondary hidden" data-i18n="ipam.add_prefix">+ إضافة بادئة</button>
+            <button id="ipam-sync-conflicts" data-i18n="ipam.show_conflicts">⚠️ تعارضات IP</button>
+            <button id="refresh-ipam" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <div id="ipam-conflicts" class="error-box hidden"></div>
+        <div id="add-prefix-form" class="sub-form hidden">
+          <h3 data-i18n="ipam.add_prefix_title">إضافة بادئة شبكة</h3>
+          <form id="prefix-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="ipam.datacenter">مركز البيانات</span><select id="prefix-dc" required></select></label>
+              <label><span data-i18n="ipam.cidr">CIDR</span><input type="text" id="prefix-cidr" required placeholder="172.16.10.0/24"></label>
+              <label><span data-i18n="ipam.vlan">VLAN</span><input type="number" id="prefix-vlan"></label>
+              <label><span data-i18n="ipam.gateway">البوابة</span><input type="text" id="prefix-gateway" placeholder="172.16.10.1"></label>
+              <label><span data-i18n="ipam.description">الوصف</span><input type="text" id="prefix-desc"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-add-prefix" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <div id="ipam-prefix-list"></div>
+        <div id="ipam-address-panel" class="sub-form hidden">
+          <div class="toolbar">
+            <h3 id="ipam-address-title"></h3>
+            <button id="ipam-sync-prefix" class="btn-secondary" data-i18n="ipam.sync_assets">↻ مزامنة الأصول</button>
+          </div>
+          <div id="ipam-utilization" class="stats-grid import-summary"></div>
+          <table id="ipam-address-table">
+            <thead>
+              <tr>
+                <th data-i18n="common.ip">IP</th><th data-i18n="ipam.status">الحالة</th><th data-i18n="ipam.hostname">Hostname</th><th data-i18n="ipam.asset">الأصل</th><th data-i18n="common.action">إجراء</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Config Backups -->
+    <section id="backups-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="backups.title">نسخ احتياطي للإعدادات</h2>
+          <div class="toolbar-actions">
+            <button id="run-all-backups" class="hidden" data-i18n="backups.run_all">▶ نسخ الكل (Cisco/Juniper)</button>
+            <button id="refresh-backups" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <p class="muted" data-i18n="backups.hint">نسخ إعدادات Cisco وJuniper عبر SSH — show running-config / show configuration</p>
+        <h3 data-i18n="backups.eligible">أجهزة مؤهلة</h3>
+        <table id="eligible-devices-table">
+          <thead>
+            <tr><th data-i18n="common.name">الاسم</th><th data-i18n="common.vendor">المورّد</th><th data-i18n="common.ip">IP</th><th data-i18n="backups.ssh">SSH</th><th data-i18n="common.action">إجراء</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <h3 data-i18n="backups.history">سجل النسخ</h3>
+        <table id="backups-table">
+          <thead>
+            <tr><th>#</th><th data-i18n="backups.device">الجهاز</th><th data-i18n="backups.hash">Hash</th><th data-i18n="backups.size">الحجم</th><th data-i18n="backups.date">التاريخ</th><th data-i18n="common.action">إجراء</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <pre id="backup-content-view" class="config-view hidden"></pre>
+      </div>
+    </section>
+
+    <!-- Integrations -->
+    <section id="integrations-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="integrations.title">التكاملات الخارجية</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-integration" class="btn-secondary hidden" data-i18n="integrations.add">+ إضافة تكامل</button>
+            <button id="sync-all-integrations" class="hidden" data-i18n="integrations.sync_all">↻ مزامنة الكل</button>
+            <button id="refresh-integrations" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <div id="add-integration-form" class="sub-form hidden">
+          <h3 data-i18n="integrations.add_title">إضافة تكامل</h3>
+          <form id="integration-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="integrations.name">الاسم</span><input type="text" id="int-name" required></label>
+              <label><span data-i18n="integrations.type">النوع</span>
+                <select id="int-type" required>
+                  <option value="prtg">PRTG</option>
+                  <option value="vmware">VMware</option>
+                </select>
+              </label>
+              <label><span data-i18n="integrations.url">Base URL</span><input type="url" id="int-url" required placeholder="https://prtg.example.com"></label>
+              <label><span data-i18n="ipam.datacenter">مركز البيانات</span><select id="int-dc"><option value="">—</option></select></label>
+              <label><span data-i18n="integrations.username">Username</span><input type="text" id="int-username"></label>
+              <label><span data-i18n="integrations.token">API Token / Password</span><input type="password" id="int-token"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-add-integration" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="integrations-table">
+          <thead>
+            <tr>
+              <th data-i18n="common.name">الاسم</th><th data-i18n="integrations.type">النوع</th><th data-i18n="integrations.url">URL</th><th data-i18n="integrations.last_sync">آخر مزامنة</th><th data-i18n="integrations.status">الحالة</th><th data-i18n="common.action">إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
     <!-- Users Management -->
     <section id="users-panel" class="panel hidden">
       <div class="card">
@@ -580,8 +709,8 @@
     </section>
   </main>
 
-  <script src="/static/i18n.js?v=5"></script>
+  <script src="/static/i18n.js?v=6"></script>
   <script>I18n.init();</script>
-  <script src="/static/app.js?v=5"></script>
+  <script src="/static/app.js?v=6"></script>
 </body>
 </html>

@@ -145,11 +145,9 @@ async def _poll_snmp(host: str, community: str, port: int) -> list[tuple[str, fl
 
 
 async def _poll_vmware_rest(host: str, username: str, password: str, token: str, port: int) -> list[tuple[str, float, str | None]]:
-    from app.services.rest_api_connector import rest_get
+    from app.services.vmware_client import collect_vmware_metrics
 
-    data = await rest_get(host, "/rest/appliance/system/version", token, port, verify_ssl=False)
-    version = data.get("version", "unknown") if isinstance(data, dict) else "unknown"
-    return [("reachable", 1.0, "bool"), ("esxi_version", hash(version) % 1000, "info")]
+    return await collect_vmware_metrics(host, username, password, token=token or None, port=port)
 
 
 async def _poll_winrm(host: str, username: str, password: str, port: int) -> list[tuple[str, float, str | None]]:
