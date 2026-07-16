@@ -41,7 +41,10 @@ button, input, select, textarea {
 
 .atmosphere {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background:
     radial-gradient(900px 500px at 12% -10%, rgba(15, 118, 110, 0.22), transparent 60%),
     radial-gradient(700px 420px at 92% 8%, rgba(14, 116, 144, 0.18), transparent 55%),
@@ -51,13 +54,18 @@ button, input, select, textarea {
 
 .grid-wash {
   position: fixed;
-  inset: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
   background-image:
     linear-gradient(rgba(19, 32, 51, 0.035) 1px, transparent 1px),
     linear-gradient(90deg, rgba(19, 32, 51, 0.035) 1px, transparent 1px);
   background-size: 48px 48px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 35%, transparent 80%);
   mask-image: radial-gradient(ellipse at center, black 35%, transparent 80%);
   z-index: -1;
+  -webkit-animation: drift 28s linear infinite;
   animation: drift 28s linear infinite;
 }
 
@@ -166,6 +174,7 @@ button, input, select, textarea {
   border-radius: 14px;
   background: var(--panel);
   border: 1px solid var(--line);
+  -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
 }
 
@@ -203,6 +212,7 @@ button, input, select, textarea {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  -webkit-backdrop-filter: blur(10px);
   backdrop-filter: blur(10px);
   overflow: hidden;
 }
@@ -464,19 +474,32 @@ button, input, select, textarea {
   margin-top: 0.25rem;
 }
 
-.modal {
-  border: none;
-  padding: 0;
-  background: transparent;
-  max-width: min(92vw, 460px);
-}
-
-.modal::backdrop {
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 40;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  padding: 1rem;
   background: rgba(19, 32, 51, 0.35);
+  -webkit-backdrop-filter: blur(3px);
   backdrop-filter: blur(3px);
 }
 
+.modal-overlay[hidden] {
+  display: none !important;
+}
+
 .modal-card {
+  width: 100%;
+  max-width: 460px;
   background: #f7fafc;
   border: 1px solid var(--line);
   border-radius: 18px;

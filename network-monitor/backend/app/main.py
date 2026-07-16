@@ -6,8 +6,10 @@ from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.requests import Request
 
 from .config import settings
 from .database import db
@@ -46,6 +48,25 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+class SafariFriendlyHeadersMiddleware(BaseHTTPMiddleware):
+    """Avoid stale Safari caches for HTML/JS/CSS during local monitoring use."""
+
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        path = request.url.path
+        if path == "/" or path.endswith(".html"):
+            response.headers["Cache-Control"] = "no-store, max-age=0"
+        elif path.startswith("/static/"):
+            response.headers["Cache-Control"] = "no-cache"
+            # Help older WebKit pick the right script/style handling.
+            if path.endswith(".js"):
+                response.headers["Content-Type"] = "application/javascript; charset=utf-8"
+        return response
+
+
+app.add_middleware(SafariFriendlyHeadersMiddleware)
 
 
 @app.get("/api/health")
@@ -184,7 +205,11 @@ async def discover_and_import(payload: DiscoverRequest) -> dict[str, Any]:
 
 @app.get("/")
 async def index() -> FileResponse:
-    return FileResponse(FRONTEND_DIR / "index.html")
+    return FileResponse(
+        FRONTEND_DIR / "index.html",
+        media_type="text/html; charset=utf-8",
+        headers={"Cache-Control": "no-store, max-age=0"},
+    )
 
 
 if STATIC_DIR.exists():

@@ -2,12 +2,14 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="format-detection" content="telephone=no" />
   <title>NetPulse — Network Monitoring</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="/static/css/app.css" />
+  <link rel="stylesheet" href="/static/css/app.css?v=safari2" />
 </head>
 <body>
   <div class="atmosphere" aria-hidden="true"></div>
@@ -111,11 +113,11 @@
     </section>
   </main>
 
-  <dialog class="modal" id="modal-add">
-    <form method="dialog" id="form-add" class="modal-card">
+  <div class="modal-overlay" id="modal-add" hidden>
+    <form id="form-add" class="modal-card" action="#" method="post">
       <h2>Add monitoring target</h2>
-      <label>Name<input name="name" required maxlength="120" placeholder="Edge router" /></label>
-      <label>Host / IP<input name="host" required maxlength="255" placeholder="192.168.1.1" /></label>
+      <label>Name<input name="name" required maxlength="120" placeholder="Edge router" autocomplete="off" /></label>
+      <label>Host / IP<input name="host" required maxlength="255" placeholder="192.168.1.1" autocomplete="off" /></label>
       <div class="row-2">
         <label>Probe
           <select name="check_type" id="add-check-type">
@@ -124,18 +126,21 @@
             <option value="http">HTTP(S)</option>
           </select>
         </label>
-        <label>Port<input name="port" type="number" min="1" max="65535" placeholder="443" /></label>
+        <label>Port<input name="port" type="number" min="1" max="65535" placeholder="443" inputmode="numeric" /></label>
       </div>
       <label>HTTP path<input name="path" value="/" placeholder="/" /></label>
       <label>Tags<input name="tags" placeholder="core, wan" /></label>
       <label>Notes<textarea name="notes" rows="2" placeholder="Optional context"></textarea></label>
       <div class="modal-actions">
-        <button type="submit" class="btn primary" value="submit">Save target</button>
+        <button type="submit" class="btn primary">Save target</button>
         <button type="button" class="btn ghost" id="btn-cancel-add">Cancel</button>
       </div>
     </form>
-  </dialog>
+  </div>
 
-  <script src="/static/js/app.js" type="module"></script>
+  <noscript>
+    <p style="padding:1rem;font-family:sans-serif">JavaScript is required for NetPulse.</p>
+  </noscript>
+  <script src="/static/js/app.js?v=safari2" defer></script>
 </body>
 </html>
