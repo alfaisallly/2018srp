@@ -1,7 +1,7 @@
 import Foundation
 
 enum AppCopyright {
-    static let ownerName = "مهندس احمد أماجد"
+    static let ownerName = "مهندس احمد ماجد"
     static let appName = "مدير Wi‑Fi"
     static let year = "2026"
 

@@ -23,7 +23,7 @@
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>NSHumanReadableCopyright</key>
-	<string>© 2026 مهندس احمد أماجد. جميع حقوق التصميم والملكية محفوظة.</string>
+	<string>© 2026 مهندس احمد ماجد. جميع حقوق التصميم والملكية محفوظة.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>يحتاج التطبيق إلى إذن الموقع لعرض اسم شبكة Wi-Fi المتصلة — هذا مطلب أمني من Apple.</string>
 	<key>UIApplicationSceneManifest</key>
