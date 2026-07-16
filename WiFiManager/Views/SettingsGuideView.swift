@@ -76,6 +76,23 @@ struct SettingsGuideView: View {
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
+
+                Section("حقوق التصميم والملكية") {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(AppCopyright.designRights)
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+
+                        Text(AppCopyright.ownershipNotice)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+
+                        Text("\(AppCopyright.appName) — تطبيق iOS")
+                            .font(.caption)
+                            .foregroundStyle(.tertiary)
+                    }
+                    .padding(.vertical, 4)
+                }
             }
             .navigationTitle("دليل iOS")
         }

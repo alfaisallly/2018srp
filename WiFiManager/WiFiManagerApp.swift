@@ -1,5 +1,8 @@
 import SwiftUI
 
+//  مدير Wi‑Fi
+//  © 2026 مهندس احمد أماجد — جميع حقوق التصميم والملكية محفوظة
+
 @main
 struct WiFiManagerApp: App {
     @StateObject private var networkStore = NetworkStore()
