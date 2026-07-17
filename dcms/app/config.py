@@ -7,7 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_name: str = "DCMS"
-    app_version: str = "1.0.0"
+    app_version: str = "1.1.0-enterprise"
     debug: bool = False
     secret_key: str = "dev-secret-key-change-in-production"
 

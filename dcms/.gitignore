@@ -8,3 +8,4 @@ __pycache__/
 *.pdf
 htmlcov/
 .coverage
+dist/*.tar.gz
