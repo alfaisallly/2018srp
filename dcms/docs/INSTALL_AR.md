@@ -53,13 +53,15 @@ DCMS نظام متكامل لإدارة مراكز البيانات يشمل:
 
 ## 3. تحميل النسخة الكاملة
 
-### من حزمة الإصدار (Release)
+### تحميل الحزمة
+
+| المنصة | الملف |
+|--------|-------|
+| **Linux** | `dist/dcms-1.1.0-enterprise.tar.gz` |
+| **Windows Server** | `dist/dcms-1.1.0-enterprise-windows.zip` |
 
 ```bash
-# على جهاز التطوير — بناء الحزمة
-cd dcms
 bash scripts/build_release.sh
-# الناتج: dist/dcms-1.1.0-enterprise.tar.gz
 ```
 
 ### نقل إلى السيرفر
@@ -196,24 +198,20 @@ journalctl -u dcms -f
 
 ## 6. التثبيت على Windows Server
 
+**📖 الدليل الكامل:** [docs/INSTALL_WINDOWS_AR.md](docs/INSTALL_WINDOWS_AR.md)
+
 ```powershell
-cd C:\dcms
+# 1. فك الضغط
+Expand-Archive dcms-1.1.0-enterprise-windows.zip -DestinationPath C:\DCMS
+
+# 2. PowerShell كمسؤول
+cd C:\DCMS
 Set-ExecutionPolicy -Scope Process Bypass
-.\scripts\install_windows.ps1
+.\INSTALL.bat
+# أو: .\scripts\install_windows_server.ps1 -RegisterService
 ```
 
-أو يدوياً:
-
-```powershell
-python -m venv venv
-.\venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-copy .env.example .env
-docker compose up -d
-$env:PYTHONPATH = "."
-python scripts\init_db.py
-uvicorn app.main:app --host 0.0.0.0 --port 8080
-```
+**الدخول:** http://localhost:8080 — `admin` / `admin123`
 
 ---
 

@@ -4,22 +4,21 @@
 
 ## التحميل والتثبيت
 
+| المنصة | الحزمة | الدليل |
+|--------|--------|--------|
+| **Linux** | `dist/dcms-1.1.0-enterprise.tar.gz` | [INSTALL_AR.md](docs/INSTALL_AR.md) |
+| **Windows Server** | `dist/dcms-1.1.0-enterprise-windows.zip` | [INSTALL_WINDOWS_AR.md](docs/INSTALL_WINDOWS_AR.md) |
+
 ```bash
-# بناء حزمة الإصدار
 bash scripts/build_release.sh
-# → dist/dcms-1.1.0-enterprise.tar.gz
 ```
 
-**📖 دليل التثبيت الكامل:** [docs/INSTALL_AR.md](docs/INSTALL_AR.md)  
-**📖 English:** [docs/INSTALL_EN.md](docs/INSTALL_EN.md)  
-**✅ قائمة الإنتاج:** [docs/PRODUCTION_CHECKLIST.md](docs/PRODUCTION_CHECKLIST.md)
+### Windows Server (سريع)
 
-### تثبيت سريع (Linux)
-
-```bash
-tar -xzf dcms-1.1.0-enterprise.tar.gz
-cd dcms-1.1.0-enterprise
-sudo bash scripts/install_linux.sh
+```powershell
+Expand-Archive dcms-1.1.0-enterprise-windows.zip -DestinationPath C:\DCMS
+cd C:\DCMS
+.\INSTALL.bat
 ```
 
 ### Docker (Stack كامل)
