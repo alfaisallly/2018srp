@@ -10,8 +10,8 @@
   const TRANSLATIONS = {
     ar: {
       // App & header
-      'app.title': 'DCMS - إدارة مراكز البيانات',
-      'app.heading': 'DCMS — نظام إدارة مراكز البيانات',
+      'app.title': 'كابتن طه — إدارة مراكز البيانات',
+      'app.heading': 'كابتن طه — نظام إدارة مراكز البيانات',
       'header.dc_label': 'المركز:',
       'header.all_dcs': 'جميع المراكز',
       'header.all_dcs_unified': 'جميع المراكز — عرض مجمّع',
@@ -38,7 +38,7 @@
       'nav.integrations': 'التكاملات',
 
       // Login
-      'login.title': 'تسجيل الدخول',
+      'login.title': 'كابتن طه — تسجيل الدخول',
       'login.username': 'اسم المستخدم',
       'login.password': 'كلمة المرور',
       'login.submit': 'دخول',
@@ -605,8 +605,8 @@
 
     en: {
       // App & header
-      'app.title': 'DCMS - Data Center Management',
-      'app.heading': 'DCMS — Data Center Management System',
+      'app.title': 'Captain Taha — Data Center Management',
+      'app.heading': 'Captain Taha — Data Center Management System',
       'header.dc_label': 'Center:',
       'header.all_dcs': 'All Centers',
       'header.all_dcs_unified': 'All Centers — Unified View',
@@ -633,7 +633,7 @@
       'nav.integrations': 'Integrations',
 
       // Login
-      'login.title': 'Sign In',
+      'login.title': 'Captain Taha — Sign In',
       'login.username': 'Username',
       'login.password': 'Password',
       'login.submit': 'Sign In',
