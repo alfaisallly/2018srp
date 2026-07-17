@@ -1,0 +1,25 @@
+[Unit]
+Description=DCMS - Data Center Management System
+After=network.target postgresql.service docker.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dcms
+Group=dcms
+WorkingDirectory=/opt/dcms
+Environment=PYTHONPATH=/opt/dcms
+EnvironmentFile=/opt/dcms/.env
+ExecStart=/opt/dcms/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8080 --workers 2
+Restart=always
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dcms
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

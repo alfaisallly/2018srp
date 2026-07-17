@@ -1,0 +1,63 @@
+# DCMS Production Stack — PostgreSQL + Redis + Application
+# Usage: docker compose -f docker-compose.prod.yml up -d
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: dcms-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-dcms}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dcms_password}
+      POSTGRES_DB: ${POSTGRES_DB:-dcms}
+    volumes:
+      - dcms_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dcms}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dcms-net
+
+  redis:
+    image: redis:7-alpine
+    container_name: dcms-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+    volumes:
+      - dcms_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - dcms-net
+
+  dcms:
+    build: .
+    container_name: dcms-app
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-dcms}:${POSTGRES_PASSWORD:-dcms_password}@postgres:5432/${POSTGRES_DB:-dcms}
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "${DCMS_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - dcms-net
+
+volumes:
+  dcms_pg_data:
+  dcms_redis_data:
+
+networks:
+  dcms-net:
+    driver: bridge
