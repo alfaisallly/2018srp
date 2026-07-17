@@ -193,7 +193,7 @@ async def generate_network_report(session: AsyncSession, datacenter_id: int) -> 
 
     ports_result = await session.execute(
         select(SwitchPort)
-        .join(Device)
+        .join(Device, SwitchPort.device_id == Device.id)
         .where(Device.datacenter_id == datacenter_id)
         .options(selectinload(SwitchPort.device), selectinload(SwitchPort.connected_device))
         .order_by(Device.name, SwitchPort.port_index)

@@ -174,7 +174,7 @@ async def sync_pure_storage(session) -> None:
                   (datacenter_id, name, hostname, ip_address, vendor, model, storage_type,
                    total_capacity_tb, notes, status)
                 VALUES
-                  (:dc_id, :name, :hostname, :ip, 'pure_storage', :model, 'SAN',
+                  (:dc_id, :name, :hostname, :ip, 'pure_storage', :model, 'san',
                    :cap, :notes, 'UNKNOWN')
                 RETURNING id
                 """

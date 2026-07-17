@@ -152,7 +152,10 @@ async def seed_network_inventory(session: AsyncSession, dc_name: str) -> dict:
         return {"skipped": True}
 
     existing = await session.execute(
-        select(func.count()).select_from(SwitchPort).join(Device).where(Device.datacenter_id == dc.id)
+        select(func.count())
+        .select_from(SwitchPort)
+        .join(Device, SwitchPort.device_id == Device.id)
+        .where(Device.datacenter_id == dc.id)
     )
     if existing.scalar_one() > 0:
         return {"skipped": True, "reason": "already_seeded"}
@@ -288,7 +291,9 @@ async def get_network_overview(session: AsyncSession, datacenter_id: int | None 
     branch_q = select(func.count()).select_from(BranchSite)
 
     if datacenter_id:
-        port_q = port_q.join(Device).where(Device.datacenter_id == datacenter_id)
+        port_q = port_q.select_from(SwitchPort).join(Device, SwitchPort.device_id == Device.id).where(
+            Device.datacenter_id == datacenter_id
+        )
         vlan_q = vlan_q.where(DeviceVlan.datacenter_id == datacenter_id)
         link_q = link_q.where(NetworkLink.datacenter_id == datacenter_id)
         fw_q = fw_q.join(Device).where(Device.datacenter_id == datacenter_id)
@@ -299,9 +304,10 @@ async def get_network_overview(session: AsyncSession, datacenter_id: int | None 
         await session.execute(
             port_q.where(SwitchPort.oper_status == PortOperStatus.UP)
             if not datacenter_id
-            else select(func.count()).select_from(SwitchPort).join(Device).where(
-                Device.datacenter_id == datacenter_id, SwitchPort.oper_status == PortOperStatus.UP
-            )
+            else select(func.count())
+            .select_from(SwitchPort)
+            .join(Device, SwitchPort.device_id == Device.id)
+            .where(Device.datacenter_id == datacenter_id, SwitchPort.oper_status == PortOperStatus.UP)
         )
     ).scalar_one()
 
