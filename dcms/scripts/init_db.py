@@ -370,6 +370,18 @@ async def init_db():
         await seed_datacenter(session, DC_MOI, MOI_ASSETS)
         await sync_pure_storage(session)
 
+        from app.services.config_templates import seed_config_templates
+        from app.services.network_inventory import seed_network_inventory
+
+        tpl_count = await seed_config_templates(session)
+        if tpl_count:
+            print(f"Seeded {tpl_count} config templates")
+
+        for dc_name in ("DC-MOROOR-01", "DC-MOI-01"):
+            stats = await seed_network_inventory(session, dc_name)
+            if not stats.get("skipped"):
+                print(f"Seeded network inventory for {dc_name}: {stats}")
+
         await session.commit()
     print("Database initialization complete.")
 

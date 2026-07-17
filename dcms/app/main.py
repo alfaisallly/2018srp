@@ -20,7 +20,7 @@ from app.api.sensors import router as sensors_router
 from app.api.ipam import router as ipam_router
 from app.api.backups import router as backups_router
 from app.api.integrations import router as integrations_router
-from app.api.capabilities import router as capabilities_router
+from app.api.network_control import router as network_control_router
 from sqlalchemy import text
 
 from app.config import get_settings
@@ -149,6 +149,7 @@ app.include_router(ipam_router, prefix=api_prefix)
 app.include_router(backups_router, prefix=api_prefix)
 app.include_router(integrations_router, prefix=api_prefix)
 app.include_router(capabilities_router, prefix=api_prefix)
+app.include_router(network_control_router, prefix=api_prefix)
 
 _frontend_dir = Path(__file__).resolve().parent.parent / "frontend"
 if _frontend_dir.is_dir():

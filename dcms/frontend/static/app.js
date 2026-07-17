@@ -127,6 +127,7 @@ document.querySelectorAll('.nav-btn').forEach(btn => {
     if (panel === 'servers') loadServers();
     if (panel === 'storage') loadStorage();
     if (panel === 'network-map') loadNetworkMap();
+    if (panel === 'network-control') loadNetworkControl();
     if (panel === 'sensors') loadSensors();
     if (panel === 'alerts') loadAlerts();
     if (panel === 'reports') loadReportSelector();
@@ -163,6 +164,7 @@ function refreshCurrentPanel() {
   else if (activePanel === 'alerts') loadAlerts();
   else if (activePanel === 'sensors') loadSensors();
   else if (activePanel === 'network-map') loadNetworkMap();
+  else if (activePanel === 'network-control') loadNetworkControl();
   else if (activePanel === 'reports') loadReportSelector();
   else if (activePanel === 'users') loadUsers();
   else if (activePanel === 'ipam') loadIpam();
@@ -876,6 +878,239 @@ function renderTopology(topology) {
 }
 
 document.getElementById('refresh-map').addEventListener('click', loadNetworkMap);
+
+let netctrlNetwork = null;
+let netctrlTemplates = [];
+let selectedNetctrlTemplate = null;
+
+const linkTypeLabels = {
+  fiber: () => t('netctrl.link.fiber'),
+  copper: () => t('netctrl.link.copper'),
+  wireless: () => t('netctrl.link.wireless'),
+  backup: () => t('netctrl.link.backup'),
+  logical: () => t('netctrl.link.logical'),
+};
+
+async function loadNetworkControl() {
+  const dcs = await api('/datacenters');
+  const dcFilter = document.getElementById('netctrl-dc-filter');
+  const prev = dcFilter.value;
+  dcFilter.innerHTML = `<option value="">${t('common.all_dcs')}</option>` +
+    dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  if (prev) dcFilter.value = prev;
+
+  const dcId = dcFilter.value ? Number(dcFilter.value) : null;
+  const q = dcId ? `?datacenter_id=${dcId}` : '';
+
+  const [overview, devices, vlans, links, firewall, branches, templates] = await Promise.all([
+    api(`/network/overview${q}`),
+    api(`/network/devices${q}`),
+    api(`/network/vlans${q}`),
+    api(`/network/links${q}`),
+    api(`/network/firewall${q}`),
+    api(`/network/branches${q}`),
+    api('/network/config-templates'),
+  ]);
+
+  netctrlTemplates = templates;
+  renderNetctrlSummary(overview);
+  populateNetctrlDeviceFilter(devices);
+  renderNetctrlPorts(devices, dcId);
+  renderNetctrlVlans(vlans);
+  renderNetctrlFirewall(firewall);
+  renderNetctrlBranches(branches);
+  renderNetctrlTemplates(templates);
+
+  if (dcId) {
+    const topo = await api(`/network/topology/${dcId}`);
+    renderNetctrlTopology(topo);
+  } else if (dcs.length) {
+    const topo = await api(`/network/topology/${dcs[0].id}`);
+    renderNetctrlTopology(topo);
+  }
+}
+
+function renderNetctrlSummary(o) {
+  document.getElementById('netctrl-summary').innerHTML = `
+    <div class="stat-card"><strong>${o.ports_total}</strong><span>${t('netctrl.stat.ports')}</span></div>
+    <div class="stat-card up"><strong>${o.ports_up}</strong><span>${t('netctrl.stat.ports_up')}</span></div>
+    <div class="stat-card down"><strong>${o.ports_down}</strong><span>${t('netctrl.stat.ports_down')}</span></div>
+    <div class="stat-card"><strong>${o.vlans_total}</strong><span>${t('netctrl.stat.vlans')}</span></div>
+    <div class="stat-card"><strong>${o.links_total}</strong><span>${t('netctrl.stat.links')}</span></div>
+    <div class="stat-card"><strong>${o.firewall_rules_total}</strong><span>${t('netctrl.stat.firewall')}</span></div>
+    <div class="stat-card"><strong>${o.branch_sites_total}</strong><span>${t('netctrl.stat.branches')}</span></div>
+  `;
+}
+
+function populateNetctrlDeviceFilter(devices) {
+  const sel = document.getElementById('netctrl-device-filter');
+  const prev = sel.value;
+  sel.innerHTML = `<option value="">${t('netctrl.all_devices')}</option>` +
+    devices.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+  if (prev) sel.value = prev;
+}
+
+async function renderNetctrlPorts(devices, dcId) {
+  const deviceFilter = document.getElementById('netctrl-device-filter').value;
+  const allPorts = [];
+  const targetDevices = deviceFilter ? devices.filter(d => d.id == deviceFilter) : devices;
+  for (const d of targetDevices) {
+    const ports = await api(`/network/devices/${d.id}/ports`);
+    ports.forEach(p => allPorts.push({ ...p, device_name: d.name }));
+  }
+  const tbody = document.querySelector('#netctrl-ports-table tbody');
+  tbody.innerHTML = allPorts.map(p => {
+    const vlanInfo = p.vlan_mode === 'access' ? (p.access_vlan || '—') : `Trunk: ${(p.trunk_vlans || []).join(',')}`;
+    let conn = '—';
+    if (p.connected_device_name) {
+      conn = `${p.connected_device_name}:${p.connected_port_name || '?'}`;
+      if (p.link_type) conn += ` (${linkTypeLabels[p.link_type]?.() || p.link_type})`;
+    }
+    return `<tr>
+      <td>${p.device_name || '—'}</td>
+      <td><code>${p.name}</code></td>
+      <td class="status-${p.oper_status}">${p.oper_status}</td>
+      <td>${p.speed_mbps ? p.speed_mbps + ' Mbps' : '—'}</td>
+      <td>${vlanInfo}</td>
+      <td>${conn}</td>
+      <td>${(p.services || []).join(', ') || '—'}</td>
+      <td>${p.description || '—'}</td>
+    </tr>`;
+  }).join('') || `<tr><td colspan="8" style="text-align:center;color:var(--muted)">${t('netctrl.no_ports')}</td></tr>`;
+}
+
+function renderNetctrlVlans(vlans) {
+  const tbody = document.querySelector('#netctrl-vlans-table tbody');
+  tbody.innerHTML = vlans.map(v => `<tr>
+    <td>${v.vlan_id}</td><td>${v.name}</td><td>${v.device_name || '—'}</td>
+    <td>${v.subnet || '—'}</td><td>${v.gateway || '—'}</td><td>${v.status}</td>
+  </tr>`).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted)">${t('netctrl.no_vlans')}</td></tr>`;
+}
+
+function renderNetctrlFirewall(rules) {
+  const tbody = document.querySelector('#netctrl-firewall-table tbody');
+  tbody.innerHTML = rules.map(r => `<tr>
+    <td>${r.device_name}</td><td>${r.name}</td>
+    <td class="fw-${r.action}">${r.action}</td>
+    <td>${r.source || '—'}</td><td>${r.destination || '—'}</td>
+    <td>${r.service || '—'}</td>
+    <td>${r.zone_in || '?'} → ${r.zone_out || '?'}</td>
+  </tr>`).join('') || `<tr><td colspan="7" style="text-align:center;color:var(--muted)">${t('netctrl.no_firewall')}</td></tr>`;
+}
+
+function renderNetctrlBranches(branches) {
+  const tbody = document.querySelector('#netctrl-branches-table tbody');
+  tbody.innerHTML = branches.map(b => {
+    const primary = b.primary_device_name ? `${b.primary_device_name}:${b.primary_port || '?'} (${linkTypeLabels[b.primary_link_type]?.() || b.primary_link_type})` : '—';
+    let backup = '—';
+    if (b.backup_enabled) {
+      const bt = linkTypeLabels[b.backup_link_type]?.() || t('netctrl.link.wireless');
+      backup = b.backup_device_name ? `${b.backup_device_name}:${b.backup_port || b.backup_wireless_ssid || '?'} (${bt})` : bt;
+    }
+    return `<tr><td>${b.name}</td><td>${b.location || '—'}</td><td>${primary}</td><td>${backup}</td><td>${b.status}</td></tr>`;
+  }).join('') || `<tr><td colspan="5" style="text-align:center;color:var(--muted)">${t('netctrl.no_branches')}</td></tr>`;
+}
+
+function renderNetctrlTopology(topo) {
+  const container = document.getElementById('netctrl-topology-graph');
+  if (!container || !topo?.nodes?.length) return;
+  const data = { nodes: new vis.DataSet(topo.nodes), edges: new vis.DataSet(topo.edges || []) };
+  const options = {
+    layout: { improvedLayout: true },
+    physics: { stabilization: { iterations: 200 } },
+    nodes: { font: { color: '#f1f5f9', size: 12 }, shapeProperties: { borderRadius: 4 } },
+    edges: { smooth: { type: 'continuous' }, font: { size: 9, align: 'middle', color: '#94a3b8' } },
+    interaction: { hover: true, tooltipDelay: 150 },
+  };
+  if (netctrlNetwork) netctrlNetwork.destroy();
+  netctrlNetwork = new vis.Network(container, data, options);
+}
+
+function renderNetctrlTemplates(templates) {
+  const vendor = document.getElementById('netctrl-template-vendor').value;
+  const filtered = vendor ? templates.filter(tpl => tpl.vendor === vendor) : templates;
+  const list = document.getElementById('netctrl-templates-list');
+  list.innerHTML = filtered.map(tpl => `
+    <div class="template-card" data-id="${tpl.id}">
+      <div class="template-vendor ${tpl.vendor}">${vendorLabel(tpl.vendor)}</div>
+      <strong>${tpl.name}</strong>
+      <p class="muted">${tpl.description || ''}</p>
+      <div class="template-tags">${(tpl.tags || []).map(tag => `<span class="tag">${tag}</span>`).join('')}</div>
+    </div>
+  `).join('') || `<p class="muted">${t('netctrl.no_templates')}</p>`;
+
+  list.querySelectorAll('.template-card').forEach(card => {
+    card.addEventListener('click', () => selectNetctrlTemplate(Number(card.dataset.id)));
+  });
+}
+
+function selectNetctrlTemplate(id) {
+  selectedNetctrlTemplate = netctrlTemplates.find(t => t.id === id);
+  if (!selectedNetctrlTemplate) return;
+  document.getElementById('netctrl-template-editor').classList.remove('hidden');
+  document.getElementById('netctrl-template-name').textContent = selectedNetctrlTemplate.name;
+  document.getElementById('netctrl-template-desc').textContent = selectedNetctrlTemplate.description || '';
+  const varsEl = document.getElementById('netctrl-template-vars');
+  varsEl.innerHTML = (selectedNetctrlTemplate.variables || []).map(v => `
+    <label><span>${v.label || v.name}${v.required ? ' *' : ''}</span>
+      <input type="${v.type === 'number' ? 'number' : 'text'}" id="tpl-var-${v.name}" placeholder="${v.example || ''}" ${v.required ? 'required' : ''}>
+    </label>
+  `).join('');
+  document.getElementById('netctrl-template-output').textContent = '';
+}
+
+document.querySelectorAll('.netctrl-tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.netctrl-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.netctrl-tab-panel').forEach(p => p.classList.add('hidden'));
+    tab.classList.add('active');
+    document.getElementById(`netctrl-tab-${tab.dataset.netctrlTab}`).classList.remove('hidden');
+  });
+});
+
+document.getElementById('refresh-netctrl')?.addEventListener('click', loadNetworkControl);
+document.getElementById('netctrl-dc-filter')?.addEventListener('change', loadNetworkControl);
+document.getElementById('netctrl-device-filter')?.addEventListener('change', async () => {
+  const dcId = document.getElementById('netctrl-dc-filter').value ? Number(document.getElementById('netctrl-dc-filter').value) : null;
+  const q = dcId ? `?datacenter_id=${dcId}` : '';
+  const devices = await api(`/network/devices${q}`);
+  renderNetctrlPorts(devices, dcId);
+});
+document.getElementById('netctrl-template-vendor')?.addEventListener('change', () => renderNetctrlTemplates(netctrlTemplates));
+
+document.getElementById('netctrl-render-template')?.addEventListener('click', async () => {
+  if (!selectedNetctrlTemplate) return;
+  const variables = {};
+  (selectedNetctrlTemplate.variables || []).forEach(v => {
+    const el = document.getElementById(`tpl-var-${v.name}`);
+    if (el && el.value) variables[v.name] = v.type === 'number' ? Number(el.value) : el.value;
+  });
+  try {
+    const result = await api(`/network/config-templates/${selectedNetctrlTemplate.id}/render`, {
+      method: 'POST', body: { variables },
+    });
+    document.getElementById('netctrl-template-output').textContent = result.config;
+  } catch (e) { alert(e.message); }
+});
+
+document.getElementById('download-network-report')?.addEventListener('click', async () => {
+  const dcId = document.getElementById('netctrl-dc-filter').value;
+  if (!dcId) { alert(t('netctrl.select_dc_report')); return; }
+  try {
+    const res = await fetch(`${API}/network/reports/${dcId}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `network-report-${dcId}.${blob.type.includes('pdf') ? 'pdf' : 'html'}`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } catch (e) { alert(e.message); }
+});
+
 document.getElementById('refresh-devices').addEventListener('click', loadDevices);
 
 async function loadAlerts() {

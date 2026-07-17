@@ -679,3 +679,137 @@ class CapabilityModule(BaseModel):
 class CapabilitiesResponse(BaseModel):
     modules: list[CapabilityModule]
     metrics: dict[str, int]
+
+
+class NetworkOverviewResponse(BaseModel):
+    ports_total: int = 0
+    ports_up: int = 0
+    ports_down: int = 0
+    vlans_total: int = 0
+    links_total: int = 0
+    firewall_rules_total: int = 0
+    branch_sites_total: int = 0
+
+
+class SwitchPortResponse(BaseModel):
+    id: int
+    device_id: int
+    name: str
+    port_index: int | None = None
+    description: str | None = None
+    oper_status: str
+    admin_status: str
+    speed_mbps: int | None = None
+    duplex: str | None = None
+    vlan_mode: str
+    access_vlan: int | None = None
+    trunk_vlans: list | None = None
+    connected_device_id: int | None = None
+    connected_device_name: str | None = None
+    connected_port_name: str | None = None
+    link_type: str | None = None
+    ip_address: str | None = None
+    services: list | None = None
+    settings: dict | None = None
+    last_sync_at: datetime | None = None
+
+
+class DeviceVlanResponse(BaseModel):
+    id: int
+    datacenter_id: int
+    device_id: int | None = None
+    device_name: str | None = None
+    vlan_id: int
+    name: str
+    subnet: str | None = None
+    gateway: str | None = None
+    status: str
+    description: str | None = None
+    port_count: int = 0
+
+
+class NetworkLinkResponse(BaseModel):
+    id: int
+    datacenter_id: int
+    from_device_id: int
+    from_device_name: str
+    from_port: str
+    to_device_id: int
+    to_device_name: str
+    to_port: str
+    link_type: str
+    is_primary: bool
+    bandwidth_mbps: int | None = None
+    status: str
+    description: str | None = None
+
+
+class BranchSiteResponse(BaseModel):
+    id: int
+    datacenter_id: int
+    name: str
+    location: str | None = None
+    address: str | None = None
+    primary_device_id: int | None = None
+    primary_device_name: str | None = None
+    primary_port: str | None = None
+    primary_link_type: str
+    backup_enabled: bool
+    backup_link_type: str | None = None
+    backup_device_id: int | None = None
+    backup_device_name: str | None = None
+    backup_port: str | None = None
+    backup_wireless_ssid: str | None = None
+    status: str
+    notes: str | None = None
+
+
+class FirewallRuleResponse(BaseModel):
+    id: int
+    device_id: int
+    device_name: str
+    rule_id: str | None = None
+    name: str
+    action: str
+    source: str | None = None
+    destination: str | None = None
+    service: str | None = None
+    protocol: str | None = None
+    port: str | None = None
+    zone_in: str | None = None
+    zone_out: str | None = None
+    enabled: bool
+    hit_count: int = 0
+    order_index: int = 0
+
+
+class TopologyResponse(BaseModel):
+    nodes: list[dict] = Field(default_factory=list)
+    edges: list[dict] = Field(default_factory=list)
+    meta: dict = Field(default_factory=dict)
+
+
+class ConfigTemplateResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    vendor: VendorType
+    category: str
+    name: str
+    description: str | None = None
+    template_body: str
+    variables: list | None = None
+    tags: list | None = None
+    is_builtin: bool
+    created_at: datetime
+
+
+class ConfigTemplateRenderRequest(BaseModel):
+    variables: dict = Field(default_factory=dict)
+
+
+class ConfigTemplateRenderResponse(BaseModel):
+    template_id: int
+    template_name: str
+    vendor: str
+    config: str

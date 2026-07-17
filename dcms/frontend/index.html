@@ -8,8 +8,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=9">
-  <script src="/static/theme.js?v=9"></script>
+  <link rel="stylesheet" href="/static/style.css?v=10">
+  <script src="/static/theme.js?v=10"></script>
   <script>ThemeStudio.load();</script>
 </head>
 <body>
@@ -34,6 +34,7 @@
     <button class="nav-btn" data-panel="servers" data-perm="view" data-i18n="nav.servers">السيرفرات</button>
     <button class="nav-btn" data-panel="storage" data-perm="view" data-i18n="nav.storage">التخزين</button>
     <button class="nav-btn" data-panel="network-map" data-perm="view" data-i18n="nav.network_map">خريطة الشبكة</button>
+    <button class="nav-btn" data-panel="network-control" data-perm="view" data-i18n="nav.network_control">إدارة الشبكة</button>
     <button class="nav-btn" data-panel="sensors" data-perm="view" data-i18n="nav.sensors">الحساسات</button>
     <button class="nav-btn" data-panel="alerts" data-perm="view" data-i18n="nav.alerts">التنبيهات</button>
     <button class="nav-btn" data-panel="reports" data-perm="view_reports" data-i18n="nav.reports">التقارير</button>
@@ -388,6 +389,99 @@
           <span class="legend-item"><span class="dot cisco"></span><span data-i18n="vendor.cisco">Cisco</span></span>
           <span class="legend-item"><span class="dot juniper"></span><span data-i18n="vendor.juniper">Juniper</span></span>
           <span class="legend-item"><span class="dot fortinet"></span><span data-i18n="vendor.fortinet">Fortinet</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Network Control -->
+    <section id="network-control-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="netctrl.title">إدارة الشبكة والفايرول</h2>
+          <div class="toolbar-actions">
+            <select id="netctrl-dc-filter"><option value="" data-i18n="common.all_dcs">كل المراكز</option></select>
+            <button id="refresh-netctrl" data-i18n="common.refresh">تحديث</button>
+            <button id="download-network-report" class="btn-secondary" data-i18n="netctrl.download_report">📄 تقرير الشبكة</button>
+          </div>
+        </div>
+        <div id="netctrl-summary" class="stats-grid netctrl-summary"></div>
+        <div class="netctrl-tabs">
+          <button class="netctrl-tab active" data-netctrl-tab="topology" data-i18n="netctrl.tab.topology">مخطط الربط</button>
+          <button class="netctrl-tab" data-netctrl-tab="ports" data-i18n="netctrl.tab.ports">المنافذ</button>
+          <button class="netctrl-tab" data-netctrl-tab="vlans" data-i18n="netctrl.tab.vlans">VLANs</button>
+          <button class="netctrl-tab" data-netctrl-tab="firewall" data-i18n="netctrl.tab.firewall">Firewall</button>
+          <button class="netctrl-tab" data-netctrl-tab="branches" data-i18n="netctrl.tab.branches">المواقع الفرعية</button>
+          <button class="netctrl-tab" data-netctrl-tab="templates" data-i18n="netctrl.tab.templates">مكتبة الإعدادات</button>
+        </div>
+      </div>
+      <div id="netctrl-tab-topology" class="netctrl-tab-panel card">
+        <div id="netctrl-topology-graph"></div>
+        <div id="netctrl-topology-legend" class="map-legend">
+          <span class="legend-item"><span class="dot" style="background:#06b6d4"></span><span data-i18n="netctrl.link.fiber">كابل ضوئي</span></span>
+          <span class="legend-item"><span class="dot" style="background:#64748b"></span><span data-i18n="netctrl.link.copper">نحاسي</span></span>
+          <span class="legend-item"><span class="dot" style="background:#a855f7"></span><span data-i18n="netctrl.link.wireless">لاسلكي</span></span>
+          <span class="legend-item"><span class="dot" style="background:#f59e0b"></span><span data-i18n="netctrl.link.backup">احتياطي</span></span>
+        </div>
+      </div>
+      <div id="netctrl-tab-ports" class="netctrl-tab-panel card hidden">
+        <div class="toolbar">
+          <h3 data-i18n="netctrl.ports_title">المنافذ والربط</h3>
+          <select id="netctrl-device-filter"><option value="" data-i18n="netctrl.all_devices">كل الأجهزة</option></select>
+        </div>
+        <table id="netctrl-ports-table">
+          <thead>
+            <tr>
+              <th data-i18n="common.device">الجهاز</th><th data-i18n="netctrl.port">المنفذ</th><th data-i18n="common.status">الحالة</th>
+              <th data-i18n="netctrl.speed">السرعة</th><th data-i18n="netctrl.vlan">VLAN</th><th data-i18n="netctrl.connection">الربط</th>
+              <th data-i18n="netctrl.services">الخدمات</th><th data-i18n="common.desc">الوصف</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-vlans" class="netctrl-tab-panel card hidden">
+        <table id="netctrl-vlans-table">
+          <thead>
+            <tr><th>ID</th><th data-i18n="common.name">الاسم</th><th data-i18n="common.device">الجهاز</th><th data-i18n="netctrl.subnet">الشبكة</th><th>Gateway</th><th data-i18n="common.status">الحالة</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-firewall" class="netctrl-tab-panel card hidden">
+        <table id="netctrl-firewall-table">
+          <thead>
+            <tr><th data-i18n="common.device">الجهاز</th><th data-i18n="common.name">القاعدة</th><th data-i18n="netctrl.action">الإجراء</th><th data-i18n="netctrl.source">المصدر</th><th data-i18n="netctrl.destination">الوجهة</th><th data-i18n="netctrl.service">الخدمة</th><th data-i18n="netctrl.zones">المناطق</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-branches" class="netctrl-tab-panel card hidden">
+        <table id="netctrl-branches-table">
+          <thead>
+            <tr><th data-i18n="common.name">الموقع</th><th data-i18n="netctrl.location">الموقع الجغرافي</th><th data-i18n="netctrl.primary_link">الرابط الأساسي</th><th data-i18n="netctrl.backup_link">الخدمة البديلة</th><th data-i18n="common.status">الحالة</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-templates" class="netctrl-tab-panel card hidden">
+        <div class="toolbar">
+          <h3 data-i18n="netctrl.templates_title">مكتبة أكواد Cisco / Juniper / Fortinet</h3>
+          <select id="netctrl-template-vendor">
+            <option value="" data-i18n="netctrl.all_vendors">كل المورّدين</option>
+            <option value="cisco">Cisco</option>
+            <option value="juniper">Juniper</option>
+            <option value="fortinet">Fortinet</option>
+          </select>
+        </div>
+        <div id="netctrl-templates-list" class="templates-grid"></div>
+        <div id="netctrl-template-editor" class="hidden">
+          <h4 id="netctrl-template-name"></h4>
+          <p id="netctrl-template-desc" class="muted"></p>
+          <div id="netctrl-template-vars" class="form-grid"></div>
+          <div class="form-actions">
+            <button id="netctrl-render-template" data-i18n="netctrl.generate_config">توليد الإعداد</button>
+          </div>
+          <pre id="netctrl-template-output" class="config-output"></pre>
         </div>
       </div>
     </section>

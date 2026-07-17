@@ -552,3 +552,164 @@ class IntegrationEndpoint(Base):
     last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_sync_status: Mapped[str | None] = mapped_column(String(64))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class LinkType(str, enum.Enum):
+    FIBER = "fiber"
+    COPPER = "copper"
+    WIRELESS = "wireless"
+    BACKUP = "backup"
+    LOGICAL = "logical"
+
+
+class PortOperStatus(str, enum.Enum):
+    UP = "up"
+    DOWN = "down"
+    ADMIN_DOWN = "admin_down"
+    TESTING = "testing"
+
+
+class FirewallAction(str, enum.Enum):
+    ALLOW = "allow"
+    DENY = "deny"
+    REJECT = "reject"
+
+
+class SwitchPort(Base):
+    __tablename__ = "switch_ports"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(64))
+    port_index: Mapped[int | None] = mapped_column(Integer)
+    description: Mapped[str | None] = mapped_column(String(255))
+    oper_status: Mapped[PortOperStatus] = mapped_column(Enum(PortOperStatus), default=PortOperStatus.DOWN)
+    admin_status: Mapped[str] = mapped_column(String(16), default="up")
+    speed_mbps: Mapped[int | None] = mapped_column(Integer)
+    duplex: Mapped[str | None] = mapped_column(String(16))
+    vlan_mode: Mapped[str] = mapped_column(String(16), default="access")
+    access_vlan: Mapped[int | None] = mapped_column(Integer)
+    trunk_vlans: Mapped[list | None] = mapped_column(JSONB)
+    connected_device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"))
+    connected_port_name: Mapped[str | None] = mapped_column(String(64))
+    link_type: Mapped[LinkType | None] = mapped_column(Enum(LinkType))
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    services: Mapped[list | None] = mapped_column(JSONB)
+    settings: Mapped[dict | None] = mapped_column(JSONB)
+    last_sync_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    device: Mapped["Device"] = relationship(foreign_keys=[device_id])
+    connected_device: Mapped["Device | None"] = relationship(foreign_keys=[connected_device_id])
+
+    __table_args__ = (UniqueConstraint("device_id", "name", name="uq_switch_port_device_name"),)
+
+
+class DeviceVlan(Base):
+    __tablename__ = "device_vlans"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datacenter_id: Mapped[int] = mapped_column(ForeignKey("datacenters.id", ondelete="CASCADE"), index=True)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    vlan_id: Mapped[int] = mapped_column(Integer, index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    subnet: Mapped[str | None] = mapped_column(String(64))
+    gateway: Mapped[str | None] = mapped_column(String(45))
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    description: Mapped[str | None] = mapped_column(String(255))
+    port_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    datacenter: Mapped["DataCenter"] = relationship()
+    device: Mapped["Device | None"] = relationship()
+
+    __table_args__ = (
+        UniqueConstraint("datacenter_id", "device_id", "vlan_id", name="uq_device_vlan_scope"),
+    )
+
+
+class NetworkLink(Base):
+    __tablename__ = "network_links"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datacenter_id: Mapped[int] = mapped_column(ForeignKey("datacenters.id", ondelete="CASCADE"), index=True)
+    from_device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    from_port: Mapped[str] = mapped_column(String(64))
+    to_device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    to_port: Mapped[str] = mapped_column(String(64))
+    link_type: Mapped[LinkType] = mapped_column(Enum(LinkType), default=LinkType.COPPER)
+    is_primary: Mapped[bool] = mapped_column(Boolean, default=True)
+    bandwidth_mbps: Mapped[int | None] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(16), default="up")
+    description: Mapped[str | None] = mapped_column(String(255))
+    metadata_: Mapped[dict | None] = mapped_column("metadata", JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    datacenter: Mapped["DataCenter"] = relationship()
+    from_device: Mapped["Device"] = relationship(foreign_keys=[from_device_id])
+    to_device: Mapped["Device"] = relationship(foreign_keys=[to_device_id])
+
+
+class BranchSite(Base):
+    __tablename__ = "branch_sites"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    datacenter_id: Mapped[int] = mapped_column(ForeignKey("datacenters.id", ondelete="CASCADE"), index=True)
+    name: Mapped[str] = mapped_column(String(128))
+    location: Mapped[str | None] = mapped_column(String(255))
+    address: Mapped[str | None] = mapped_column(String(255))
+    primary_device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"))
+    primary_port: Mapped[str | None] = mapped_column(String(64))
+    primary_link_type: Mapped[LinkType] = mapped_column(Enum(LinkType), default=LinkType.FIBER)
+    backup_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    backup_link_type: Mapped[LinkType | None] = mapped_column(Enum(LinkType))
+    backup_device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"))
+    backup_port: Mapped[str | None] = mapped_column(String(64))
+    backup_wireless_ssid: Mapped[str | None] = mapped_column(String(128))
+    status: Mapped[str] = mapped_column(String(16), default="active")
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    datacenter: Mapped["DataCenter"] = relationship()
+    primary_device: Mapped["Device | None"] = relationship(foreign_keys=[primary_device_id])
+    backup_device: Mapped["Device | None"] = relationship(foreign_keys=[backup_device_id])
+
+
+class FirewallRule(Base):
+    __tablename__ = "firewall_rules"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    device_id: Mapped[int] = mapped_column(ForeignKey("devices.id", ondelete="CASCADE"), index=True)
+    rule_id: Mapped[str | None] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(128))
+    action: Mapped[FirewallAction] = mapped_column(Enum(FirewallAction), default=FirewallAction.ALLOW)
+    source: Mapped[str | None] = mapped_column(String(255))
+    destination: Mapped[str | None] = mapped_column(String(255))
+    service: Mapped[str | None] = mapped_column(String(128))
+    protocol: Mapped[str | None] = mapped_column(String(16))
+    port: Mapped[str | None] = mapped_column(String(64))
+    zone_in: Mapped[str | None] = mapped_column(String(64))
+    zone_out: Mapped[str | None] = mapped_column(String(64))
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    hit_count: Mapped[int] = mapped_column(Integer, default=0)
+    order_index: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    device: Mapped["Device"] = relationship()
+
+
+class ConfigTemplate(Base):
+    __tablename__ = "config_templates"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    vendor: Mapped[VendorType] = mapped_column(Enum(VendorType))
+    category: Mapped[str] = mapped_column(String(64))
+    name: Mapped[str] = mapped_column(String(128))
+    description: Mapped[str | None] = mapped_column(Text)
+    template_body: Mapped[str] = mapped_column(Text)
+    variables: Mapped[list | None] = mapped_column(JSONB)
+    tags: Mapped[list | None] = mapped_column(JSONB)
+    is_builtin: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (UniqueConstraint("vendor", "name", name="uq_config_template_vendor_name"),)

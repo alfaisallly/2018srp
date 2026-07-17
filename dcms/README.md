@@ -9,6 +9,9 @@
 | **المورّدون** | Cisco, Juniper, Fortinet |
 | **البروتوكولات** | SNMP, SSH, NETCONF, REST API |
 | **خريطة الشبكة** | تصور تفاعلي بـ vis.js |
+| **إدارة الشبكة** | VLANs، المنافذ، Firewall، مخطط الربط بالمنافذ، المواقع الفرعية |
+| **مكتبة الإعدادات** | قوالب آمنة Cisco/Juniper/Fortinet مع توليد تلقائي |
+| **تقارير الشبكة** | PDF/HTML: المنافذ، VLANs، الروابط، Firewall، الفروع |
 | **الصلاحيات** | RBAC (admin, operator, viewer) |
 | **التقارير** | PDF/HTML لكل مركز بيانات |
 | **التنبيهات** | CPU/ذاكرة/انقطاع + Redis pub/sub |
@@ -81,6 +84,16 @@ POST   /api/v1/devices/import-discovered # استيراد الأجهزة الم�
 POST   /api/v1/devices/poll-all          # فحص جميع الأجهزة
 POST   /api/v1/devices/{id}/poll
 GET    /api/v1/network-maps
+GET    /api/v1/network/overview              # ملخص الشبكة
+GET    /api/v1/network/devices/{id}/ports    # منافذ السويج
+GET    /api/v1/network/vlans                 # VLANs
+GET    /api/v1/network/links                 # روابط بين الأجهزة
+GET    /api/v1/network/firewall              # قواعد Firewall
+GET    /api/v1/network/branches              # المواقع الفرعية + خدمات بديلة
+GET    /api/v1/network/topology/{dc_id}      # مخطط الربط بالمنافذ
+GET    /api/v1/network/reports/{dc_id}       # تقرير شبكة PDF/HTML
+GET    /api/v1/network/config-templates      # مكتبة أكواد Cisco/Juniper
+POST   /api/v1/network/config-templates/{id}/render
 GET    /api/v1/alerts
 PATCH  /api/v1/alerts/{id}
 GET    /api/v1/reports/dashboard

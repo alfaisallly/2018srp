@@ -537,6 +537,61 @@ tbody tr:hover {
   margin-top: 1rem;
 }
 
+#netctrl-topology-graph {
+  width: 100%;
+  height: 520px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.netctrl-summary { margin-bottom: 1rem; }
+.netctrl-tabs { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+.netctrl-tab {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--card);
+  cursor: pointer;
+  font-family: inherit;
+  color: var(--text);
+}
+.netctrl-tab.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.netctrl-tab-panel { margin-top: 1rem; }
+.templates-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; margin-top: 1rem; }
+.template-card {
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.2s, transform 0.2s;
+  background: var(--card);
+}
+.template-card:hover { border-color: var(--primary); transform: translateY(-2px); }
+.template-vendor { font-size: 0.75rem; font-weight: 700; margin-bottom: 0.5rem; text-transform: uppercase; }
+.template-vendor.cisco { color: #049fd9; }
+.template-vendor.juniper { color: #84bd00; }
+.template-vendor.fortinet { color: #ee3124; }
+.template-tags { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.5rem; }
+.template-tags .tag { font-size: 0.7rem; padding: 2px 6px; background: var(--bg); border-radius: 4px; color: var(--muted); }
+.config-output {
+  background: #0f172a;
+  color: #e2e8f0;
+  padding: 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-family: 'Courier New', monospace;
+  font-size: 0.85rem;
+  direction: ltr;
+  text-align: left;
+  margin-top: 1rem;
+  white-space: pre-wrap;
+}
+.fw-allow { color: #22c55e; }
+.fw-deny, .fw-reject { color: #ef4444; }
+.status-up { color: #22c55e; }
+.status-down, .status-admin_down { color: #ef4444; }
+
 #map-legend {
   display: flex;
   gap: 1.5rem;
