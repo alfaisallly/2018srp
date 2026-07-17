@@ -7,8 +7,10 @@
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=8">
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=9">
+  <script src="/static/theme.js?v=9"></script>
+  <script>ThemeStudio.load();</script>
 </head>
 <body>
   <div class="lang-switcher lang-switcher-corner" id="lang-switcher">
@@ -20,6 +22,7 @@
   <header>
     <h1 data-i18n="app.heading">DCMS — نظام إدارة مراكز البيانات</h1>
     <div class="header-actions">
+      <button id="open-appearance" class="btn-secondary btn-icon" type="button" title="Theme" aria-label="Theme">🎨</button>
       <div id="user-info"></div>
       <button id="logout-btn" class="btn-secondary btn-logout hidden" data-i18n="header.logout">خروج</button>
     </div>
@@ -718,8 +721,108 @@
     </section>
   </main>
 
-  <script src="/static/i18n.js?v=8"></script>
-  <script>I18n.init();</script>
-  <script src="/static/app.js?v=8"></script>
+  <!-- Theme Studio Panel -->
+  <div id="theme-overlay" class="theme-overlay"></div>
+  <aside id="appearance-panel" class="appearance-panel" aria-label="Theme settings">
+    <div class="appearance-head">
+      <h2 data-i18n="theme.title">استوديو المظهر</h2>
+      <button id="close-appearance" class="btn-secondary btn-icon" type="button" aria-label="Close">✕</button>
+    </div>
+    <p class="muted appearance-sub" data-i18n="theme.subtitle">تحكم كامل بالألوان، الأزرار، الخطوط، والوضع النهاري/الليلي</p>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.mode">الوضع</h3>
+      <div class="mode-toggle-wrap">
+        <span data-i18n="theme.dark">🌙 ليلي</span>
+        <button id="theme-mode-toggle" class="mode-toggle" type="button" aria-pressed="false">
+          <span class="mode-knob"></span>
+        </button>
+        <span data-i18n="theme.light">☀️ نهاري</span>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.presets">قوالب جاهزة</h3>
+      <div class="preset-grid">
+        <button type="button" class="preset-card" data-preset="midnight"><span class="preset-swatch" style="background:linear-gradient(135deg,#0b1220,#3b82f6)"></span><span class="preset-name">Midnight</span></button>
+        <button type="button" class="preset-card" data-preset="ocean"><span class="preset-swatch" style="background:linear-gradient(135deg,#071018,#06b6d4)"></span><span class="preset-name">Ocean</span></button>
+        <button type="button" class="preset-card" data-preset="moroor"><span class="preset-swatch" style="background:linear-gradient(135deg,#0f172a,#2563eb)"></span><span class="preset-name">Moroor</span></button>
+        <button type="button" class="preset-card" data-preset="lightpro"><span class="preset-swatch" style="background:linear-gradient(135deg,#f1f5f9,#2563eb)"></span><span class="preset-name">Light Pro</span></button>
+        <button type="button" class="preset-card" data-preset="sunrise"><span class="preset-swatch" style="background:linear-gradient(135deg,#fef3c7,#ea580c)"></span><span class="preset-name">Sunrise</span></button>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.colors">الألوان</h3>
+      <div class="color-grid">
+        <label><span data-i18n="theme.color.primary">أساسي</span><input type="color" id="theme-color-primary" value="#3b82f6"></label>
+        <label><span data-i18n="theme.color.accent">تمييز</span><input type="color" id="theme-color-accent" value="#22c55e"></label>
+        <label><span data-i18n="theme.color.surface">سطح</span><input type="color" id="theme-color-surface" value="#1a2332"></label>
+        <label><span data-i18n="theme.color.background">خلفية</span><input type="color" id="theme-color-background" value="#0b1220"></label>
+        <label><span data-i18n="theme.color.text">نص</span><input type="color" id="theme-color-text" value="#f1f5f9"></label>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.buttons">الأزرار</h3>
+      <label><span data-i18n="theme.btn.style">النمط</span>
+        <select id="theme-btn-style">
+          <option value="3d" data-i18n="theme.btn.3d">ثلاثي الأبعاد</option>
+          <option value="flat" data-i18n="theme.btn.flat">مسطح</option>
+          <option value="glass" data-i18n="theme.btn.glass">زجاجي</option>
+          <option value="neon" data-i18n="theme.btn.neon">نيون</option>
+        </select>
+      </label>
+      <label><span data-i18n="theme.btn.shape">الشكل</span>
+        <select id="theme-btn-shape">
+          <option value="rounded" data-i18n="theme.btn.rounded">مستدير</option>
+          <option value="pill" data-i18n="theme.btn.pill">حبة</option>
+          <option value="soft" data-i18n="theme.btn.soft">ناعم</option>
+          <option value="square" data-i18n="theme.btn.square">مربع</option>
+        </select>
+      </label>
+      <label><span data-i18n="theme.btn.size">الحجم</span>
+        <select id="theme-btn-size">
+          <option value="sm" data-i18n="theme.size.sm">صغير</option>
+          <option value="md" data-i18n="theme.size.md">متوسط</option>
+          <option value="lg" data-i18n="theme.size.lg">كبير</option>
+        </select>
+      </label>
+      <div class="btn-preview-row">
+        <button type="button" data-i18n="theme.preview.primary">زر أساسي</button>
+        <button type="button" class="btn-secondary" data-i18n="theme.preview.secondary">زر ثانوي</button>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.typography">الخطوط</h3>
+      <label><span data-i18n="theme.font.family">نوع الخط</span>
+        <select id="theme-font">
+          <option value="Tajawal">Tajawal</option>
+          <option value="Cairo">Cairo</option>
+          <option value="IBM Plex Sans Arabic">IBM Plex Sans Arabic</option>
+          <option value="Almarai">Almarai</option>
+          <option value="Inter">Inter</option>
+        </select>
+      </label>
+      <label><span data-i18n="theme.font.scale">حجم الخط</span> <output id="theme-font-scale-val">100%</output>
+        <input type="range" id="theme-font-scale" min="85" max="130" value="100" step="1">
+      </label>
+      <label><span data-i18n="theme.radius">استدارة الزوايا</span> <output id="theme-radius-val">12px</output>
+        <input type="range" id="theme-radius" min="4" max="24" value="12" step="1">
+      </label>
+      <label class="checkbox-row"><input type="checkbox" id="theme-animations" checked> <span data-i18n="theme.animations">حركات تفاعلية</span></label>
+    </section>
+
+    <div class="appearance-foot">
+      <button id="theme-reset" type="button" class="btn-secondary" data-i18n="theme.reset">إعادة الافتراضي</button>
+    </div>
+  </aside>
+
+  <button id="theme-fab" class="theme-fab" type="button" aria-label="Theme Studio" title="Theme">🎨</button>
+
+  <script src="/static/i18n.js?v=9"></script>
+  <script>I18n.init(); ThemeStudio.bindAppearancePanel(); ThemeStudio.syncPanelControls();</script>
+  <script src="/static/app.js?v=9"></script>
 </body>
 </html>

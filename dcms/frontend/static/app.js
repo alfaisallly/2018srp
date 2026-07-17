@@ -71,6 +71,8 @@ function applyPermissionsUI() {
   document.getElementById('show-add-integration')?.classList.toggle('hidden', !canManageIntegrations());
   document.getElementById('sync-all-integrations')?.classList.toggle('hidden', !canManageIntegrations());
   document.getElementById('run-all-backups')?.classList.toggle('hidden', !hasPerm('manage_devices'));
+  document.getElementById('theme-fab')?.classList.toggle('hidden', !currentUser);
+  document.getElementById('open-appearance')?.classList.toggle('hidden', !currentUser);
 }
 
 function logout() {
