@@ -920,6 +920,7 @@ async function loadNetworkControl() {
   renderNetctrlFirewall(firewall);
   renderNetctrlBranches(branches);
   renderNetctrlTemplates(templates);
+  renderNetctrlSwitches(devices);
 
   if (dcId) {
     const topo = await api(`/network/topology/${dcId}`);
@@ -956,7 +957,7 @@ async function renderNetctrlPorts(devices, dcId) {
   const targetDevices = deviceFilter ? devices.filter(d => d.id == deviceFilter) : devices;
   for (const d of targetDevices) {
     const ports = await api(`/network/devices/${d.id}/ports`);
-    ports.forEach(p => allPorts.push({ ...p, device_name: d.name }));
+    ports.forEach(p => allPorts.push({ ...p, device_name: d.name, device_id: d.id }));
   }
   const tbody = document.querySelector('#netctrl-ports-table tbody');
   tbody.innerHTML = allPorts.map(p => {
@@ -966,8 +967,8 @@ async function renderNetctrlPorts(devices, dcId) {
       conn = `${p.connected_device_name}:${p.connected_port_name || '?'}`;
       if (p.link_type) conn += ` (${linkTypeLabels[p.link_type]?.() || p.link_type})`;
     }
-    return `<tr>
-      <td>${p.device_name || '—'}</td>
+    return `<tr class="netctrl-port-row">
+      <td><button type="button" class="link-btn" onclick="openSwitchDetail(${p.device_id})">${p.device_name || '—'}</button></td>
       <td><code>${p.name}</code></td>
       <td class="status-${p.oper_status}">${p.oper_status}</td>
       <td>${p.speed_mbps ? p.speed_mbps + ' Mbps' : '—'}</td>
@@ -1024,7 +1025,229 @@ function renderNetctrlTopology(topo) {
   };
   if (netctrlNetwork) netctrlNetwork.destroy();
   netctrlNetwork = new vis.Network(container, data, options);
+  netctrlNetwork.on('click', (params) => {
+    if (!params.nodes.length) return;
+    const nodeId = params.nodes[0];
+    const match = String(nodeId).match(/^dev-(\d+)$/);
+    if (match) openSwitchDetail(Number(match[1]));
+  });
 }
+
+function renderNetctrlSwitches(devices) {
+  const grid = document.getElementById('netctrl-switches-grid');
+  if (!grid) return;
+  const networkDevices = devices.filter(d => ['switch', 'router', 'firewall'].includes(d.device_type));
+  grid.innerHTML = networkDevices.map(d => `
+    <div class="switch-card" onclick="openSwitchDetail(${d.id})">
+      <div class="switch-card-header">
+        <div>
+          <div class="switch-card-vendor ${d.vendor}">${vendorLabel(d.vendor)} · ${deviceTypeLabel(d.device_type)}</div>
+          <strong>${d.name}</strong>
+          <div class="muted" style="font-size:0.85rem">${d.ip_address}</div>
+        </div>
+        <span class="status-badge status-${d.status}">${d.status}</span>
+      </div>
+      <div class="switch-card-stats">
+        <span>${t('netctrl.click_details')}</span>
+      </div>
+    </div>
+  `).join('') || `<p class="muted">${t('netctrl.no_switches')}</p>`;
+}
+
+let switchLocalNetwork = null;
+let currentSwitchDetail = null;
+let selectedSwitchPort = null;
+
+async function openSwitchDetail(deviceId) {
+  if (!deviceId) return;
+  try {
+    const detail = await api(`/network/devices/${deviceId}/detail`);
+    currentSwitchDetail = detail;
+    renderSwitchDetailModal(detail);
+    document.getElementById('switch-detail-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  } catch (e) { alert(e.message); }
+}
+
+function closeSwitchDetail() {
+  document.getElementById('switch-detail-modal').classList.add('hidden');
+  document.body.style.overflow = '';
+  if (switchLocalNetwork) { switchLocalNetwork.destroy(); switchLocalNetwork = null; }
+  currentSwitchDetail = null;
+  selectedSwitchPort = null;
+}
+
+function renderSwitchDetailModal(d) {
+  const dev = d.device;
+  const cap = d.capacity;
+  document.getElementById('switch-detail-title').textContent = dev.name;
+  document.getElementById('switch-detail-subtitle').textContent =
+    `${vendorLabel(dev.vendor)} · ${deviceTypeLabel(dev.device_type)} · ${dev.ip_address} · ${dev.datacenter_name || ''}`;
+
+  document.getElementById('switch-detail-insights').innerHTML =
+    (d.insights || []).map(i => `<div class="switch-insight">${i}</div>`).join('');
+
+  document.getElementById('switch-capacity-bars').innerHTML = `
+    <div class="capacity-card">
+      <label>${t('netctrl.cap.total_bw')}</label>
+      <strong>${cap.total_capacity_mbps} Mbps</strong>
+      <div class="capacity-bar-wrap"><div class="capacity-bar bw" style="width:100%"></div></div>
+      <small class="muted">${t('netctrl.cap.min')}: ${cap.min_port_mbps} · ${t('netctrl.cap.max')}: ${cap.max_port_mbps} Mbps</small>
+    </div>
+    <div class="capacity-card">
+      <label>${t('netctrl.cap.used_bw')}</label>
+      <strong>${cap.used_capacity_mbps} / ${cap.active_capacity_mbps} Mbps</strong>
+      <div class="capacity-bar-wrap"><div class="capacity-bar bw" style="width:${Math.min(cap.bandwidth_utilization_pct, 100)}%"></div></div>
+      <small class="muted">${cap.bandwidth_utilization_pct}% · ${t('netctrl.cap.available')}: ${cap.available_capacity_mbps} Mbps</small>
+    </div>
+    <div class="capacity-card">
+      <label>${t('netctrl.cap.packets')}</label>
+      <strong>${cap.total_packets_per_sec.toLocaleString()} pps</strong>
+      <div class="capacity-bar-wrap"><div class="capacity-bar pps" style="width:${Math.min(cap.packets_utilization_pct, 100)}%"></div></div>
+      <small class="muted">${t('netctrl.cap.max_pps')}: ${cap.max_packets_per_sec.toLocaleString()} · ${cap.packets_utilization_pct}%</small>
+    </div>
+    <div class="capacity-card">
+      <label>${t('netctrl.cap.ports')}</label>
+      <strong>${cap.ports_up} / ${cap.total_ports}</strong>
+      <small class="muted">${t('netctrl.stat.ports_up')} · MTU ${cap.mtu}</small>
+    </div>
+  `;
+
+  document.getElementById('switch-tab-ports').innerHTML = `
+    <table>
+      <thead><tr>
+        <th>${t('netctrl.port')}</th><th>${t('common.status')}</th><th>${t('netctrl.speed')}</th>
+        <th>${t('netctrl.vlan')}</th><th>${t('netctrl.connection')}</th><th>${t('netctrl.services')}</th>
+        <th>${t('netctrl.cap.util')}</th><th>${t('common.desc')}</th>
+      </tr></thead>
+      <tbody>${d.ports.map(p => {
+        const peer = p.peer ? `${p.peer.device_name}:${p.peer.port_name || '?'}` : '—';
+        const util = p.settings?.utilization_pct ?? 0;
+        return `<tr class="switch-port-row" onclick="showPortDetail(${p.id})" style="cursor:pointer">
+          <td><code>${p.name}</code></td>
+          <td class="status-${p.oper_status}">${p.oper_status}</td>
+          <td>${p.speed_mbps} Mbps</td>
+          <td>${p.vlan_info.summary}</td>
+          <td>${peer}${p.link_type_label ? ` (${p.link_type_label})` : ''}</td>
+          <td>${(p.services || []).join(', ') || '—'}</td>
+          <td>${util}% · ${p.settings?.avg_pps?.toLocaleString() || 0} pps</td>
+          <td>${p.description || '—'}</td>
+        </tr>`;
+      }).join('')}</tbody>
+    </table>
+    <div id="switch-port-detail-pop"></div>
+  `;
+
+  document.getElementById('switch-tab-grid').innerHTML = `
+    <div class="port-grid">${d.ports.map(p => {
+      const util = p.settings?.utilization_pct ?? 0;
+      const peer = p.peer ? `→ ${p.peer.device_name}:${p.peer.port_name || '?'}` : '';
+      return `<div class="port-tile ${p.oper_status}" onclick="showPortDetail(${p.id})">
+        <div class="port-tile-name">${p.name}</div>
+        <div class="port-tile-status status-${p.oper_status}">${p.oper_status} · ${p.speed_mbps}M</div>
+        <div class="port-tile-peer">${p.vlan_info.summary}</div>
+        ${peer ? `<div class="port-tile-peer">${peer}</div>` : ''}
+        <div class="port-tile-util"><div class="port-tile-util-bar" style="width:${util}%"></div></div>
+      </div>`;
+    }).join('')}</div>
+    <div id="switch-port-detail-pop-grid"></div>
+  `;
+
+  document.getElementById('switch-tab-vlans').innerHTML = `
+    <table>
+      <thead><tr><th>ID</th><th>${t('common.name')}</th><th>${t('netctrl.subnet')}</th><th>Gateway</th><th>${t('netctrl.swtab.ports_on_vlan')}</th></tr></thead>
+      <tbody>${d.vlans.map(v => `<tr>
+        <td>${v.vlan_id}</td><td>${v.name}</td><td>${v.subnet || '—'}</td><td>${v.gateway || '—'}</td>
+        <td>${(v.ports || []).join(', ') || '—'} (${v.port_count})</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  `;
+
+  document.getElementById('switch-tab-peers').innerHTML = d.peers.length ? d.peers.map(peer => `
+    <div class="card" style="margin-bottom:0.75rem;padding:1rem">
+      <div class="toolbar" style="margin-bottom:0.5rem">
+        <strong>${peer.name}</strong>
+        <button type="button" class="btn-sm link-btn" onclick="openSwitchDetail(${peer.device_id})">${t('netctrl.open_peer')}</button>
+      </div>
+      <div class="muted">${peer.ip_address} · ${deviceTypeLabel(peer.device_type)} · ${vendorLabel(peer.vendor)}</div>
+      <table style="margin-top:0.5rem"><thead><tr>
+        <th>${t('netctrl.local_port')}</th><th>${t('netctrl.remote_port')}</th><th>${t('netctrl.connection')}</th>
+      </tr></thead><tbody>${peer.ports.map(p => `<tr>
+        <td><code>${p.local}</code></td><td><code>${p.remote || '—'}</code></td><td>${p.link_type || '—'}</td>
+      </tr>`).join('')}</tbody></table>
+    </div>
+  `).join('') : `<p class="muted">${t('netctrl.no_peers')}</p>`;
+
+  document.getElementById('switch-tab-firewall').innerHTML = d.firewall_rules.length ? `
+    <table><thead><tr>
+      <th>${t('common.device')}</th><th>${t('common.name')}</th><th>${t('netctrl.action')}</th>
+      <th>${t('netctrl.source')}</th><th>${t('netctrl.destination')}</th><th>${t('netctrl.service')}</th><th>${t('netctrl.scope')}</th>
+    </tr></thead><tbody>${d.firewall_rules.map(r => `<tr>
+      <td>${r.device_name}</td><td>${r.name}</td><td class="fw-${r.action}">${r.action}</td>
+      <td>${r.source || '—'}</td><td>${r.destination || '—'}</td><td>${r.service || '—'}</td>
+      <td>${r.scope === 'local' ? t('netctrl.scope_local') : t('netctrl.scope_related')}</td>
+    </tr>`).join('')}</tbody></table>
+  ` : `<p class="muted">${t('netctrl.no_firewall')}</p>`;
+
+  activateSwitchDetailTab('ports');
+  renderSwitchLocalTopology(d.local_topology);
+}
+
+function showPortDetail(portId) {
+  if (!currentSwitchDetail) return;
+  const p = currentSwitchDetail.ports.find(x => x.id === portId);
+  if (!p) return;
+  selectedSwitchPort = p;
+  const html = `
+    <div class="port-detail-pop">
+      <h4>${p.name} — ${p.description || t('netctrl.port')}</h4>
+      <div class="port-detail-grid">
+        <div><span>${t('common.status')}</span>${p.oper_status} (${p.admin_status})</div>
+        <div><span>${t('netctrl.speed')}</span>${p.speed_mbps} Mbps · ${p.duplex}</div>
+        <div><span>${t('netctrl.vlan')}</span>${p.vlan_info.summary}</div>
+        <div><span>${t('netctrl.cap.util')}</span>${p.settings.utilization_pct}% · ${p.settings.used_mbps} Mbps</div>
+        <div><span>${t('netctrl.cap.packets')}</span>${p.settings.avg_pps?.toLocaleString()} / ${p.settings.max_pps?.toLocaleString()} pps</div>
+        <div><span>MTU</span>${p.settings.mtu}</div>
+        <div><span>${t('netctrl.connection')}</span>${p.peer ? `${p.peer.device_name}:${p.peer.port_name} (${p.peer.ip_address})` : '—'}</div>
+        <div><span>${t('netctrl.services')}</span>${(p.services || []).join(', ') || '—'}</div>
+        <div><span>Storm Control</span>${p.settings.storm_control ? t('common.yes') : t('common.no')}</div>
+        <div><span>PortFast</span>${p.settings.portfast ? t('common.yes') : t('common.no')}</div>
+      </div>
+      ${p.peer ? `<button type="button" class="btn-sm" style="margin-top:0.75rem" onclick="openSwitchDetail(${p.peer.device_id})">${t('netctrl.open_peer')}: ${p.peer.device_name}</button>` : ''}
+    </div>`;
+  const pop = document.getElementById('switch-port-detail-pop') || document.getElementById('switch-port-detail-pop-grid');
+  if (pop) pop.innerHTML = html;
+}
+
+function renderSwitchLocalTopology(topo) {
+  const container = document.getElementById('switch-local-topology');
+  if (!container || !topo?.nodes?.length) return;
+  if (switchLocalNetwork) switchLocalNetwork.destroy();
+  switchLocalNetwork = new vis.Network(container, {
+    nodes: new vis.DataSet(topo.nodes),
+    edges: new vis.DataSet(topo.edges || []),
+  }, {
+    physics: { enabled: true, stabilization: { iterations: 100 } },
+    nodes: { font: { color: '#f1f5f9', size: 11 } },
+    edges: { font: { size: 8, align: 'middle' } },
+  });
+  switchLocalNetwork.on('click', (params) => {
+    const match = String(params.nodes[0] || '').match(/^dev-(\d+)$/);
+    if (match && Number(match[1]) !== currentSwitchDetail?.device?.id) openSwitchDetail(Number(match[1]));
+  });
+}
+
+function activateSwitchDetailTab(name) {
+  document.querySelectorAll('.switch-dtab').forEach(t => t.classList.toggle('active', t.dataset.switchTab === name));
+  document.querySelectorAll('.switch-tab-panel').forEach(p => p.classList.add('hidden'));
+  document.getElementById(`switch-tab-${name}`)?.classList.remove('hidden');
+}
+
+document.querySelectorAll('.switch-dtab').forEach(tab => {
+  tab.addEventListener('click', () => activateSwitchDetailTab(tab.dataset.switchTab));
+});
+document.getElementById('close-switch-detail')?.addEventListener('click', closeSwitchDetail);
+document.getElementById('switch-modal-backdrop')?.addEventListener('click', closeSwitchDetail);
 
 function renderNetctrlTemplates(templates) {
   const vendor = document.getElementById('netctrl-template-vendor').value;
@@ -2045,6 +2268,9 @@ document.getElementById('excel-apply-btn')?.addEventListener('click', async () =
   }
 });
 
+window.openSwitchDetail = openSwitchDetail;
+window.closeSwitchDetail = closeSwitchDetail;
+window.showPortDetail = showPortDetail;
 window.openDatacenterDetail = openDatacenterDetail;
 window.switchDcTab = switchDcTab;
 window.ackAlert = ackAlert;

@@ -31,12 +31,14 @@ from app.schemas import (
     FirewallRuleResponse,
     NetworkLinkResponse,
     NetworkOverviewResponse,
+    SwitchDetailResponse,
     SwitchPortResponse,
     TopologyResponse,
 )
 from app.services.config_templates import render_template, validate_variables
 from app.services.network_inventory import get_network_overview
 from app.services.network_reports import generate_network_report
+from app.services.switch_detail import get_switch_detail
 from app.services.topology_builder import build_port_topology
 
 router = APIRouter(prefix="/network", tags=["Network Control"])
@@ -79,6 +81,18 @@ async def list_network_devices(
         }
         for d in devices
     ]
+
+
+@router.get("/devices/{device_id}/detail", response_model=SwitchDetailResponse)
+async def switch_detail(
+    device_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission(Permission.VIEW))],
+):
+    detail = await get_switch_detail(db, device_id)
+    if not detail:
+        raise HTTPException(status_code=404, detail="Device not found")
+    return SwitchDetailResponse(**detail)
 
 
 @router.get("/devices/{device_id}/ports", response_model=list[SwitchPortResponse])

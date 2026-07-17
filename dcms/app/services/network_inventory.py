@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.services.switch_detail import _build_port_settings
 from app.models import (
     BranchSite,
     DataCenter,
@@ -196,6 +197,12 @@ async def seed_network_inventory(session: AsyncSession, dc_name: str) -> dict:
                     connected_id = conn_dev.id
                     connected_port = conn_port
             link_type = LinkType(p["link"]) if p.get("link") else None
+            util = p.get("utilization_pct", 45 if p["status"] == "up" else 0)
+            settings = _build_port_settings(
+                p.get("speed"),
+                p["status"],
+                {"utilization_pct": util, **(p.get("settings") or {})},
+            )
             session.add(
                 SwitchPort(
                     device_id=device.id,
@@ -204,6 +211,7 @@ async def seed_network_inventory(session: AsyncSession, dc_name: str) -> dict:
                     description=p.get("desc"),
                     oper_status=PortOperStatus(p["status"]),
                     speed_mbps=p.get("speed"),
+                    duplex=p.get("duplex", "full"),
                     vlan_mode=p.get("mode", "access"),
                     access_vlan=p.get("vlan"),
                     trunk_vlans=p.get("trunk_vlans"),
@@ -211,6 +219,7 @@ async def seed_network_inventory(session: AsyncSession, dc_name: str) -> dict:
                     connected_port_name=connected_port,
                     link_type=link_type,
                     services=p.get("services"),
+                    settings=settings,
                     last_sync_at=datetime.now(timezone.utc),
                 )
             )

@@ -813,3 +813,73 @@ class ConfigTemplateRenderResponse(BaseModel):
     template_name: str
     vendor: str
     config: str
+
+
+class SwitchCapacityResponse(BaseModel):
+    total_ports: int = 0
+    ports_up: int = 0
+    ports_down: int = 0
+    total_capacity_mbps: int = 0
+    active_capacity_mbps: int = 0
+    used_capacity_mbps: float = 0
+    available_capacity_mbps: float = 0
+    min_port_mbps: int = 0
+    max_port_mbps: int = 0
+    bandwidth_utilization_pct: float = 0
+    total_packets_per_sec: int = 0
+    max_packets_per_sec: int = 0
+    packets_utilization_pct: float = 0
+    mtu: int = 1500
+
+
+class SwitchPortDetailResponse(BaseModel):
+    id: int
+    name: str
+    port_index: int | None = None
+    description: str | None = None
+    oper_status: str
+    admin_status: str
+    speed_mbps: int
+    duplex: str
+    vlan_mode: str
+    vlan_info: dict
+    ip_address: str | None = None
+    services: list = Field(default_factory=list)
+    link_type: str | None = None
+    link_type_label: str | None = None
+    peer: dict | None = None
+    settings: dict = Field(default_factory=dict)
+
+
+class SwitchVlanDetailResponse(BaseModel):
+    id: int
+    vlan_id: int
+    name: str
+    subnet: str | None = None
+    gateway: str | None = None
+    status: str
+    description: str | None = None
+    ports: list[str] = Field(default_factory=list)
+    port_count: int = 0
+
+
+class SwitchPeerResponse(BaseModel):
+    device_id: int
+    name: str
+    ip_address: str
+    device_type: str
+    vendor: str
+    status: str
+    ports: list[dict] = Field(default_factory=list)
+
+
+class SwitchDetailResponse(BaseModel):
+    device: dict
+    capacity: SwitchCapacityResponse
+    ports: list[SwitchPortDetailResponse]
+    vlans: list[SwitchVlanDetailResponse]
+    links: list[dict] = Field(default_factory=list)
+    peers: list[SwitchPeerResponse] = Field(default_factory=list)
+    firewall_rules: list[dict] = Field(default_factory=list)
+    local_topology: dict = Field(default_factory=dict)
+    insights: list[str] = Field(default_factory=list)
