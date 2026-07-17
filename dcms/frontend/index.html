@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title data-i18n="app.title">DCMS - إدارة مراكز البيانات</title>
   <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-  <link rel="stylesheet" href="/static/style.css?v=6">
+  <link rel="stylesheet" href="/static/style.css?v=7">
 </head>
 <body>
   <div class="lang-switcher lang-switcher-corner" id="lang-switcher">
@@ -612,10 +612,15 @@
         <div class="toolbar">
           <h2 data-i18n="integrations.title">التكاملات الخارجية</h2>
           <div class="toolbar-actions">
-            <button id="show-add-integration" class="btn-secondary hidden" data-i18n="integrations.add">+ إضافة تكامل</button>
-            <button id="sync-all-integrations" class="hidden" data-i18n="integrations.sync_all">↻ مزامنة الكل</button>
-            <button id="refresh-integrations" data-i18n="common.refresh">تحديث</button>
+            <button id="show-add-integration" data-i18n="integrations.add">+ إضافة تكامل</button>
+            <button id="sync-all-integrations" class="btn-secondary" data-i18n="integrations.sync_all">↻ مزامنة الكل</button>
+            <button id="refresh-integrations" class="btn-secondary" data-i18n="common.refresh">تحديث</button>
           </div>
+        </div>
+        <p class="muted" data-i18n="integrations.hint">أضف رابط PRTG أو VMware (Base URL + Token) لربط النظام الخارجي واستعراض بياناته داخل DCMS</p>
+        <div id="integrations-empty-cta" class="integration-empty-cta hidden">
+          <p data-i18n="integrations.empty_cta">لا توجد تكاملات — اضغط «إضافة تكامل» وأدخل رابط PRTG</p>
+          <button id="integrations-empty-add" data-i18n="integrations.add">+ إضافة تكامل</button>
         </div>
         <div id="add-integration-form" class="sub-form hidden">
           <h3 data-i18n="integrations.add_title">إضافة تكامل</h3>
@@ -628,10 +633,10 @@
                   <option value="vmware">VMware</option>
                 </select>
               </label>
-              <label><span data-i18n="integrations.url">Base URL</span><input type="url" id="int-url" required placeholder="https://prtg.example.com"></label>
+              <label><span data-i18n="integrations.url">رابط النظام (Base URL)</span><input type="url" id="int-url" required data-i18n-placeholder="integrations.url_placeholder" placeholder="https://192.168.1.10"></label>
+              <label id="int-token-label"><span data-i18n="integrations.token">API Token / Password</span><input type="password" id="int-token" data-i18n-placeholder="integrations.token_placeholder" placeholder="PRTG API Token"></label>
               <label><span data-i18n="ipam.datacenter">مركز البيانات</span><select id="int-dc"><option value="">—</option></select></label>
-              <label><span data-i18n="integrations.username">Username</span><input type="text" id="int-username"></label>
-              <label><span data-i18n="integrations.token">API Token / Password</span><input type="password" id="int-token"></label>
+              <label id="int-user-label"><span data-i18n="integrations.username">Username</span><input type="text" id="int-username"></label>
             </div>
             <div class="form-actions">
               <button type="submit" data-i18n="common.save">حفظ</button>
@@ -647,6 +652,7 @@
           </thead>
           <tbody></tbody>
         </table>
+        <div id="integration-detail" class="integration-detail hidden"></div>
       </div>
     </section>
 
@@ -709,8 +715,8 @@
     </section>
   </main>
 
-  <script src="/static/i18n.js?v=6"></script>
+  <script src="/static/i18n.js?v=7"></script>
   <script>I18n.init();</script>
-  <script src="/static/app.js?v=6"></script>
+  <script src="/static/app.js?v=7"></script>
 </body>
 </html>

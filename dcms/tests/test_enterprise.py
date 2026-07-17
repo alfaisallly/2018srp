@@ -1,6 +1,7 @@
 import pytest
 
-from app.models import Permission, VendorType
+from app.models import Permission, User, VendorType
+from app.core.permissions import permissions_from_user, ROLE_TEMPLATES
 from app.services.config_backup import _config_command
 from app.services.ipam import _iter_hosts
 from app.services.capabilities import CAPABILITIES
@@ -65,9 +66,14 @@ def test_new_permissions_in_admin():
     assert Permission.MANAGE_IPAM in ROLE_PERMISSIONS["operator"]
 
 
-def test_editor_has_ipam_permissions():
-    from app.core.permissions import ROLE_TEMPLATES
+def test_permissions_from_user_stale_admin():
+    user = User(username="admin", email="a@a.com", hashed_password="x", role="admin", permissions=["view"])
+    perms = permissions_from_user(user)
+    assert Permission.MANAGE_INTEGRATIONS in perms
+    assert Permission.MANAGE_IPAM in perms
 
+
+def test_editor_has_ipam_permissions():
     editor_perms = ROLE_TEMPLATES["editor"]["permissions"]
     assert Permission.MANAGE_IPAM in editor_perms
     assert Permission.MANAGE_INTEGRATIONS in editor_perms

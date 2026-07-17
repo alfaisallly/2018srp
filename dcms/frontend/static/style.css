@@ -991,3 +991,19 @@ textarea {
 .data-table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
 .data-table th, .data-table td { padding: 0.5rem; border-bottom: 1px solid var(--border); text-align: right; }
 html[dir="ltr"] .data-table th, html[dir="ltr"] .data-table td { text-align: left; }
+.integration-empty-cta {
+  text-align: center;
+  padding: 2rem 1rem;
+  margin: 1rem 0;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+}
+.integration-empty-cta button { margin-top: 1rem; }
+.integration-detail {
+  margin-top: 1.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border);
+}
+.integration-stats { margin-top: 1rem; }
+.integration-row { cursor: pointer; }
+.integration-row:hover { background: rgba(59, 130, 246, 0.06); }

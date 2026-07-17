@@ -46,6 +46,10 @@ function hasPerm(perm) {
   return currentPermissions.has(perm);
 }
 
+function canManageIntegrations() {
+  return hasPerm('manage_integrations') || currentUser?.role === 'admin';
+}
+
 function applyPermissionsUI() {
   document.querySelectorAll('[data-perm]').forEach(el => {
     const perm = el.dataset.perm;
@@ -64,8 +68,8 @@ function applyPermissionsUI() {
   document.getElementById('seed-sensors')?.classList.toggle('hidden', !canManage('manage_devices'));
   document.getElementById('show-add-dc')?.classList.toggle('hidden', !hasPerm('manage_datacenters'));
   document.getElementById('show-add-prefix')?.classList.toggle('hidden', !hasPerm('manage_ipam'));
-  document.getElementById('show-add-integration')?.classList.toggle('hidden', !hasPerm('manage_integrations'));
-  document.getElementById('sync-all-integrations')?.classList.toggle('hidden', !hasPerm('manage_integrations'));
+  document.getElementById('show-add-integration')?.classList.toggle('hidden', !canManageIntegrations());
+  document.getElementById('sync-all-integrations')?.classList.toggle('hidden', !canManageIntegrations());
   document.getElementById('run-all-backups')?.classList.toggle('hidden', !hasPerm('manage_devices'));
 }
 
@@ -1520,22 +1524,89 @@ document.getElementById('run-all-backups')?.addEventListener('click', async () =
 document.getElementById('refresh-backups')?.addEventListener('click', loadBackups);
 
 // --- Integrations ---
+let integrationsCache = [];
+
+function updateIntegrationFormFields() {
+  const type = document.getElementById('int-type')?.value || 'prtg';
+  const userLabel = document.getElementById('int-user-label');
+  const tokenLabel = document.getElementById('int-token-label');
+  const tokenInput = document.getElementById('int-token');
+  if (!userLabel || !tokenLabel) return;
+  if (type === 'prtg') {
+    userLabel.classList.add('hidden');
+    tokenLabel.classList.remove('hidden');
+    if (tokenInput) tokenInput.placeholder = t('integrations.token_placeholder_prtg');
+  } else {
+    userLabel.classList.remove('hidden');
+    tokenLabel.classList.remove('hidden');
+    if (tokenInput) tokenInput.placeholder = t('integrations.token_placeholder_vmware');
+  }
+}
+
+function renderIntegrationDetail(item) {
+  const panel = document.getElementById('integration-detail');
+  if (!panel || !item) return;
+  panel.classList.remove('hidden');
+  const summary = item.extra?.prtg_summary;
+  const vmware = item.extra?.vmware_metrics;
+  let statsHtml = '';
+  if (item.integration_type === 'prtg' && summary) {
+    statsHtml = `<div class="stats-grid integration-stats">
+      <div class="stat-card"><div class="value">${summary.total || 0}</div><div class="label">${t('integrations.sensors_total')}</div></div>
+      <div class="stat-card"><div class="value status-online">${summary.up || 0}</div><div class="label">${t('integrations.sensors_up')}</div></div>
+      <div class="stat-card"><div class="value">${summary.warning || 0}</div><div class="label">${t('integrations.sensors_warning')}</div></div>
+      <div class="stat-card"><div class="value">${summary.down || 0}</div><div class="label">${t('integrations.sensors_down')}</div></div>
+    </div>`;
+  } else if (item.integration_type === 'vmware' && vmware) {
+    statsHtml = `<div class="stats-grid integration-stats">${Object.entries(vmware).map(([k, v]) =>
+      `<div class="stat-card"><div class="value">${v}</div><div class="label">${k}</div></div>`).join('')}</div>`;
+  } else {
+    statsHtml = `<p class="muted">${t('integrations.no_sync_data')}</p>`;
+  }
+  panel.innerHTML = `
+    <div class="toolbar">
+      <h3>${item.name} — ${item.integration_type.toUpperCase()}</h3>
+      <div class="toolbar-actions">
+        <a href="${item.base_url}" target="_blank" rel="noopener" class="btn-secondary">${t('integrations.open_external')}</a>
+        ${canManageIntegrations() ? `
+          <button class="btn-secondary" onclick="testIntegration(${item.id})">${t('integrations.test')}</button>
+          <button onclick="syncIntegration(${item.id})">${t('integrations.sync')}</button>` : ''}
+      </div>
+    </div>
+    <p class="muted">${t('integrations.url')}: <a href="${item.base_url}" target="_blank" rel="noopener">${item.base_url}</a></p>
+    <p class="muted">${t('integrations.last_sync')}: ${item.last_sync_at ? localeDate(item.last_sync_at) : '—'} — ${item.last_sync_status || '—'}</p>
+    ${statsHtml}
+  `;
+}
+
 async function loadIntegrations() {
   const items = await api('/integrations');
+  integrationsCache = items;
   const dcs = await api('/datacenters');
   const intDc = document.getElementById('int-dc');
   if (intDc && intDc.options.length <= 1) {
     intDc.innerHTML = `<option value="">—</option>` + dcs.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
   }
+  document.getElementById('integrations-empty-cta')?.classList.toggle('hidden', items.length > 0 || !canManageIntegrations());
   document.querySelector('#integrations-table tbody').innerHTML = items.length ? items.map(i => `
-    <tr>
-      <td>${i.name}</td><td>${i.integration_type.toUpperCase()}</td><td>${i.base_url}</td>
+    <tr class="integration-row" onclick="viewIntegration(${i.id})">
+      <td><strong>${i.name}</strong></td>
+      <td>${i.integration_type.toUpperCase()}</td>
+      <td><a href="${i.base_url}" target="_blank" rel="noopener" onclick="event.stopPropagation()">${i.base_url}</a></td>
       <td>${i.last_sync_at ? localeDate(i.last_sync_at) : '—'}</td>
       <td>${i.last_sync_status || (i.enabled ? '—' : 'disabled')}</td>
-      <td>${hasPerm('manage_integrations') ? `
+      <td onclick="event.stopPropagation()">${canManageIntegrations() ? `
         <button class="btn-secondary" onclick="testIntegration(${i.id})">${t('integrations.test')}</button>
-        <button onclick="syncIntegration(${i.id})">${t('integrations.sync')}</button>` : '—'}</td>
+        <button onclick="syncIntegration(${i.id})">${t('integrations.sync')}</button>` : `<button class="btn-secondary" onclick="viewIntegration(${i.id})">${t('common.view')}</button>`}</td>
     </tr>`).join('') : `<tr><td colspan="6" class="muted">${t('integrations.no_items')}</td></tr>`;
+  if (items.length === 1) renderIntegrationDetail(items[0]);
+  else document.getElementById('integration-detail')?.classList.add('hidden');
+  updateIntegrationFormFields();
+}
+
+function viewIntegration(id) {
+  const item = integrationsCache.find(i => i.id === id);
+  if (item) renderIntegrationDetail(item);
 }
 
 async function testIntegration(id) {
@@ -1549,17 +1620,24 @@ async function testIntegration(id) {
 
 async function syncIntegration(id) {
   try {
-    await api(`/integrations/${id}/sync`, { method: 'POST' });
+    const result = await api(`/integrations/${id}/sync`, { method: 'POST' });
     alert(t('integrations.sync_ok'));
     await loadIntegrations();
+    viewIntegration(id);
+    if (result?.summary) renderIntegrationDetail({ ...integrationsCache.find(i => i.id === id), extra: { prtg_summary: result.summary } });
   } catch (err) {
     alert(err.message);
   }
 }
 
-document.getElementById('show-add-integration')?.addEventListener('click', () => {
+function openAddIntegrationForm() {
   document.getElementById('add-integration-form')?.classList.remove('hidden');
-});
+  updateIntegrationFormFields();
+}
+
+document.getElementById('show-add-integration')?.addEventListener('click', openAddIntegrationForm);
+document.getElementById('integrations-empty-add')?.addEventListener('click', openAddIntegrationForm);
+document.getElementById('int-type')?.addEventListener('change', updateIntegrationFormFields);
 document.getElementById('cancel-add-integration')?.addEventListener('click', () => {
   document.getElementById('add-integration-form')?.classList.add('hidden');
 });
@@ -1735,6 +1813,7 @@ window.switchDcTab = switchDcTab;
 window.ackAlert = ackAlert;
 window.resolveAlert = resolveAlert;
 window.downloadDcReport = downloadDcReport;
+window.viewIntegration = viewIntegration;
 window.openIpamPrefix = openIpamPrefix;
 window.updateIpAddress = updateIpAddress;
 window.backupDeviceNow = backupDeviceNow;

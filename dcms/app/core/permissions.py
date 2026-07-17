@@ -74,8 +74,15 @@ def _validate_permissions(perms: list[str]) -> list[str]:
 
 
 def permissions_from_user(user) -> set[Permission]:
+    if user.role == "admin":
+        return set(Permission)
     if user.permissions:
-        return {Permission(p) for p in user.permissions if p in {x.value for x in Permission}}
+        stored = {Permission(p) for p in user.permissions if p in {x.value for x in Permission}}
+        template = ROLE_TEMPLATES.get(user.role)
+        if template and template["permissions"]:
+            stored |= set(template["permissions"])
+        if stored:
+            return stored
     template = ROLE_TEMPLATES.get(user.role)
     if template and template["permissions"]:
         return set(template["permissions"])

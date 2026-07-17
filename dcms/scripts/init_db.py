@@ -359,9 +359,11 @@ async def init_db():
                 )
             )
             print("Created admin user: admin / admin123")
-        elif not admin.permissions:
-            admin.permissions = [p.value for p in Permission]
-            print("Updated admin permissions")
+        elif admin.role == "admin":
+            all_perms = [p.value for p in Permission]
+            if set(admin.permissions or []) != set(all_perms):
+                admin.permissions = all_perms
+                print("Updated admin permissions")
 
         await cleanup_legacy_data(session)
         await seed_datacenter(session, DC_MOROOR, MOROOR_ASSETS)
