@@ -108,6 +108,16 @@
       'netctrl.cap.available': 'متاح',
       'netctrl.cap.max_pps': 'أقصى pps',
       'netctrl.cap.util': 'الاستخدام',
+      'netctrl.sync_snmp': 'مزامنة SNMP',
+      'netctrl.sync_transport': 'مزامنة SNMP (شبكة النقل)',
+      'netctrl.sync_snmp_confirm': 'مزامنة المنافذ و VLANs من SNMP لهذا الجهاز؟',
+      'netctrl.sync_transport_confirm': 'مزامنة جميع أجهزة شبكة النقل (المواقع الفرعية ↔ مركز البيانات) عبر SNMP؟',
+      'netctrl.sync_ok': 'تمت المزامنة: {created} منفذ جديد، {updated} محدّث، {vlans} VLAN، {found} واجهة',
+      'netctrl.sync_transport_ok': 'مزامنة شبكة النقل: {success}/{eligible} نجح، {failed} فشل',
+      'netctrl.sync_failed': 'فشلت المزامنة — تحقق من SNMP community والاتصال',
+      'netctrl.segment.transport_branch': 'شبكة نقل — فرع ↔ مركز',
+      'netctrl.segment.transport_dc': 'شبكة نقل — بين مراكز البيانات',
+      'netctrl.segment.internal': 'شبكة داخلية',
 
       // Login
       'login.title': 'تسجيل الدخول',
@@ -777,6 +787,16 @@
       'netctrl.cap.available': 'Available',
       'netctrl.cap.max_pps': 'Max pps',
       'netctrl.cap.util': 'Utilization',
+      'netctrl.sync_snmp': 'Sync SNMP',
+      'netctrl.sync_transport': 'Sync SNMP (Transport Network)',
+      'netctrl.sync_snmp_confirm': 'Sync ports and VLANs from SNMP for this device?',
+      'netctrl.sync_transport_confirm': 'Sync all transport network devices (branch ↔ DC) via SNMP?',
+      'netctrl.sync_ok': 'Synced: {created} new ports, {updated} updated, {vlans} VLANs, {found} interfaces',
+      'netctrl.sync_transport_ok': 'Transport sync: {success}/{eligible} succeeded, {failed} failed',
+      'netctrl.sync_failed': 'Sync failed — check SNMP community and connectivity',
+      'netctrl.segment.transport_branch': 'Transport — branch ↔ DC',
+      'netctrl.segment.transport_dc': 'Transport — DC ↔ DC',
+      'netctrl.segment.internal': 'Internal network',
 
       // Login
       'login.title': 'Sign In',

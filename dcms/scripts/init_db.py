@@ -339,6 +339,26 @@ MOI_ASSETS = {
 }
 
 
+DEVICE_NETWORK_TAGS: dict[str, dict] = {
+    "MR-Edge-RTR-01": {"network_segment": "transport_branch", "snmp_inventory": True},
+    "MR-FW-01": {"network_segment": "transport_branch", "snmp_inventory": True},
+    "MR-Core-SW-01": {"network_segment": "internal", "snmp_inventory": False},
+    "MOI-RTR-01": {"network_segment": "transport_branch", "snmp_inventory": True},
+    "MOI-FW-01": {"network_segment": "transport_branch", "snmp_inventory": True},
+    "MOI-Core-SW-01": {"network_segment": "internal", "snmp_inventory": False},
+}
+
+
+async def apply_device_network_tags(session) -> None:
+    for name, tags in DEVICE_NETWORK_TAGS.items():
+        result = await session.execute(select(Device).where(Device.name == name))
+        device = result.scalar_one_or_none()
+        if device:
+            device.tags = tags
+    await session.flush()
+    print("Applied network segment tags (transport / internal)")
+
+
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -381,6 +401,8 @@ async def init_db():
             stats = await seed_network_inventory(session, dc_name)
             if not stats.get("skipped"):
                 print(f"Seeded network inventory for {dc_name}: {stats}")
+
+        await apply_device_network_tags(session)
 
         await session.commit()
     print("Database initialization complete.")

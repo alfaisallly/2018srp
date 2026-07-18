@@ -32,11 +32,19 @@ from app.schemas import (
     NetworkLinkResponse,
     NetworkOverviewResponse,
     SwitchDetailResponse,
+    SnmpSyncResult,
+    SnmpTransportSyncResult,
     SwitchPortResponse,
     TopologyResponse,
 )
 from app.services.config_templates import render_template, validate_variables
-from app.services.network_inventory import get_network_overview
+from app.services.network_snmp_sync import (
+    NETWORK_SEGMENTS,
+    get_network_segment,
+    is_snmp_inventory_eligible,
+    sync_device_snmp_inventory,
+    sync_transport_devices,
+)
 from app.services.network_reports import generate_network_report
 from app.services.switch_detail import get_switch_detail
 from app.services.topology_builder import build_port_topology
@@ -78,6 +86,10 @@ async def list_network_devices(
             "device_type": d.device_type.value if d.device_type else "other",
             "status": d.status.value,
             "datacenter_id": d.datacenter_id,
+            "network_segment": get_network_segment(d),
+            "network_segment_label": NETWORK_SEGMENTS.get(get_network_segment(d), get_network_segment(d)),
+            "snmp_inventory": is_snmp_inventory_eligible(d),
+            "tags": d.tags or {},
         }
         for d in devices
     ]
@@ -93,6 +105,36 @@ async def switch_detail(
     if not detail:
         raise HTTPException(status_code=404, detail="Device not found")
     return SwitchDetailResponse(**detail)
+
+
+@router.post("/devices/{device_id}/sync-snmp", response_model=SnmpSyncResult)
+async def sync_device_snmp(
+    device_id: int,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission(Permission.MANAGE_DEVICES))],
+):
+    result = await sync_device_snmp_inventory(db, device_id)
+    if not result.get("ok") and result.get("error") == "Device not found":
+        raise HTTPException(status_code=404, detail=result["error"])
+    return SnmpSyncResult(**result)
+
+
+@router.post("/sync-transport", response_model=SnmpTransportSyncResult)
+async def sync_transport_network(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission(Permission.MANAGE_DEVICES))],
+    datacenter_id: int | None = None,
+):
+    """Sync SNMP inventory for transport network devices (branch ↔ DC, DC ↔ DC)."""
+    result = await sync_transport_devices(db, datacenter_id)
+    return SnmpTransportSyncResult(**result)
+
+
+@router.get("/segments")
+async def list_network_segments(
+    _: Annotated[User, Depends(require_permission(Permission.VIEW))],
+):
+    return {"segments": NETWORK_SEGMENTS}
 
 
 @router.get("/devices/{device_id}/ports", response_model=list[SwitchPortResponse])

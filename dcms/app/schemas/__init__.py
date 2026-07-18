@@ -883,3 +883,23 @@ class SwitchDetailResponse(BaseModel):
     firewall_rules: list[dict] = Field(default_factory=list)
     local_topology: dict = Field(default_factory=dict)
     insights: list[str] = Field(default_factory=list)
+
+
+class SnmpSyncResult(BaseModel):
+    ok: bool
+    error: str | None = None
+    device: str | None = None
+    network_segment: str | None = None
+    network_segment_label: str | None = None
+    ports_created: int = 0
+    ports_updated: int = 0
+    vlans_created: int = 0
+    interfaces_found: int = 0
+    source: str | None = None
+
+
+class SnmpTransportSyncResult(BaseModel):
+    eligible: int = 0
+    success: int = 0
+    failed: int = 0
+    results: list[dict] = Field(default_factory=list)

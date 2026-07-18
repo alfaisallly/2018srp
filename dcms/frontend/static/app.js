@@ -1044,10 +1044,12 @@ function renderNetctrlSwitches(devices) {
           <div class="switch-card-vendor ${d.vendor}">${vendorLabel(d.vendor)} · ${deviceTypeLabel(d.device_type)}</div>
           <strong>${d.name}</strong>
           <div class="muted" style="font-size:0.85rem">${d.ip_address}</div>
+          ${d.network_segment_label ? `<span class="segment-badge segment-${d.network_segment || 'internal'}">${d.network_segment_label}</span>` : ''}
         </div>
         <span class="status-badge status-${d.status}">${d.status}</span>
       </div>
       <div class="switch-card-stats">
+        ${d.snmp_inventory ? `<span class="snmp-badge">SNMP</span>` : ''}
         <span>${t('netctrl.click_details')}</span>
       </div>
     </div>
@@ -1082,7 +1084,14 @@ function renderSwitchDetailModal(d) {
   const cap = d.capacity;
   document.getElementById('switch-detail-title').textContent = dev.name;
   document.getElementById('switch-detail-subtitle').textContent =
-    `${vendorLabel(dev.vendor)} · ${deviceTypeLabel(dev.device_type)} · ${dev.ip_address} · ${dev.datacenter_name || ''}`;
+    `${vendorLabel(dev.vendor)} · ${deviceTypeLabel(dev.device_type)} · ${dev.ip_address} · ${dev.datacenter_name || ''}` +
+    (dev.network_segment_label ? ` · ${dev.network_segment_label}` : '');
+
+  const syncBtn = document.getElementById('sync-switch-snmp');
+  if (syncBtn) {
+    syncBtn.classList.toggle('hidden', !dev.snmp_inventory || !hasPerm('manage_devices'));
+    syncBtn.onclick = () => syncSwitchSnmp(dev.id);
+  }
 
   document.getElementById('switch-detail-insights').innerHTML =
     (d.insights || []).map(i => `<div class="switch-insight">${i}</div>`).join('');
@@ -1315,6 +1324,35 @@ document.getElementById('netctrl-render-template')?.addEventListener('click', as
     document.getElementById('netctrl-template-output').textContent = result.config;
   } catch (e) { alert(e.message); }
 });
+
+async function syncSwitchSnmp(deviceId) {
+  if (!confirm(t('netctrl.sync_snmp_confirm'))) return;
+  try {
+    const result = await api(`/network/devices/${deviceId}/sync-snmp`, { method: 'POST' });
+    if (!result.ok) { alert(result.error || t('netctrl.sync_failed')); return; }
+    alert(t('netctrl.sync_ok', {
+      created: result.ports_created,
+      updated: result.ports_updated,
+      vlans: result.vlans_created,
+      found: result.interfaces_found,
+    }));
+    await openSwitchDetail(deviceId);
+    await loadNetworkControl();
+  } catch (e) { alert(e.message); }
+}
+
+async function syncTransportSnmp() {
+  const dcId = document.getElementById('netctrl-dc-filter').value;
+  if (!confirm(t('netctrl.sync_transport_confirm'))) return;
+  try {
+    const q = dcId ? `?datacenter_id=${dcId}` : '';
+    const result = await api(`/network/sync-transport${q}`, { method: 'POST' });
+    alert(t('netctrl.sync_transport_ok', { success: result.success, eligible: result.eligible, failed: result.failed }));
+    await loadNetworkControl();
+  } catch (e) { alert(e.message); }
+}
+
+document.getElementById('sync-transport-snmp')?.addEventListener('click', syncTransportSnmp);
 
 document.getElementById('download-network-report')?.addEventListener('click', async () => {
   const dcId = document.getElementById('netctrl-dc-filter').value;

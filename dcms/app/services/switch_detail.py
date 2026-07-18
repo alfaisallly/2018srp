@@ -319,6 +319,9 @@ async def get_switch_detail(session: AsyncSession, device_id: int) -> dict | Non
             })
 
     dtype = device.device_type.value if device.device_type else "other"
+    segment = (device.tags or {}).get("network_segment", "internal")
+    from app.services.network_snmp_sync import NETWORK_SEGMENTS, is_snmp_inventory_eligible
+
     return {
         "device": {
             "id": device.id,
@@ -331,6 +334,10 @@ async def get_switch_detail(session: AsyncSession, device_id: int) -> dict | Non
             "status": device.status.value,
             "datacenter_id": device.datacenter_id,
             "datacenter_name": datacenter.name if datacenter else None,
+            "network_segment": segment,
+            "network_segment_label": NETWORK_SEGMENTS.get(segment, segment),
+            "snmp_inventory": is_snmp_inventory_eligible(device),
+            "tags": device.tags or {},
         },
         "capacity": capacity,
         "ports": port_details,
