@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=11">
+  <link rel="stylesheet" href="/static/style.css?v=13">
   <script src="/static/theme.js?v=11"></script>
   <script>ThemeStudio.load();</script>
 </head>
@@ -831,6 +831,8 @@
           <p id="switch-detail-subtitle" class="muted"></p>
         </div>
         <div class="switch-modal-actions">
+          <button id="switch-detail-poll" class="btn-secondary" type="button" data-i18n="common.poll">فحص</button>
+          <button id="switch-detail-backup" class="btn-secondary" type="button" data-i18n="netctrl.backup_config">نسخة إعدادات</button>
           <button id="sync-switch-snmp" class="btn-secondary hidden" type="button" data-i18n="netctrl.sync_snmp">🔄 مزامنة SNMP</button>
           <button id="close-switch-detail" class="btn-secondary btn-icon" type="button" aria-label="Close">✕</button>
         </div>
@@ -838,18 +840,26 @@
       <div id="switch-detail-insights" class="switch-insights"></div>
       <div id="switch-capacity-bars" class="capacity-section"></div>
       <div class="switch-detail-tabs">
-        <button class="switch-dtab active" data-switch-tab="ports" data-i18n="netctrl.swtab.ports">المنافذ</button>
+        <button class="switch-dtab active" data-switch-tab="ports" data-i18n="netctrl.swtab.ports">جدول المنافذ</button>
         <button class="switch-dtab" data-switch-tab="grid" data-i18n="netctrl.swtab.grid">لوحة المنافذ</button>
+        <button class="switch-dtab" data-switch-tab="access" data-i18n="netctrl.swtab.access">Access Ports</button>
+        <button class="switch-dtab" data-switch-tab="trunks" data-i18n="netctrl.swtab.trunks">Trunks</button>
         <button class="switch-dtab" data-switch-tab="vlans" data-i18n="netctrl.tab.vlans">VLANs</button>
         <button class="switch-dtab" data-switch-tab="peers" data-i18n="netctrl.swtab.peers">الأجهزة المرتبطة</button>
         <button class="switch-dtab" data-switch-tab="firewall" data-i18n="netctrl.tab.firewall">Firewall</button>
+        <button class="switch-dtab" data-switch-tab="config" data-i18n="netctrl.swtab.config">الإعدادات</button>
+        <button class="switch-dtab" data-switch-tab="console" data-i18n="netctrl.swtab.console">كونسول</button>
         <button class="switch-dtab" data-switch-tab="topology" data-i18n="netctrl.swtab.local_topo">الربط المحلي</button>
       </div>
       <div id="switch-tab-ports" class="switch-tab-panel"></div>
       <div id="switch-tab-grid" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-access" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-trunks" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-vlans" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-peers" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-firewall" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-config" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-console" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-topology" class="switch-tab-panel hidden">
         <div id="switch-local-topology"></div>
       </div>
@@ -956,8 +966,8 @@
 
   <button id="theme-fab" class="theme-fab" type="button" aria-label="Theme Studio" title="Theme">🎨</button>
 
-  <script src="/static/i18n.js?v=11"></script>
+  <script src="/static/i18n.js?v=13"></script>
   <script>I18n.init(); ThemeStudio.bindAppearancePanel(); ThemeStudio.syncPanelControls();</script>
-  <script src="/static/app.js?v=11"></script>
+  <script src="/static/app.js?v=13"></script>
 </body>
 </html>

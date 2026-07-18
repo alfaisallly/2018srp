@@ -1842,3 +1842,21 @@ html[data-animations="0"] .theme-fab { animation: none; }
 }
 
 #login-panel .theme-fab { display: none; }
+
+.switch-console {
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  padding: 1rem;
+  border-radius: 12px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  max-height: 420px;
+  overflow: auto;
+  border: 1px solid #334155;
+}
+.device-row-click { cursor: pointer; }
+.device-row-click:hover { background: color-mix(in srgb, var(--primary) 6%, transparent); }
+.device-manage-btn { white-space: nowrap; }

@@ -348,11 +348,14 @@ function assetTableRowsWithActions(items, type) {
       : type === 'storage'
         ? `<td>${a.vendor || dash}</td><td>${a.storage_type || dash}</td>`
         : `<td>${vendorLabel(a.vendor) || a.vendor || dash}</td><td>${deviceTypeLabel(a.device_type) || a.device_type || dash}</td>`;
-    return `<tr>
+    return `<tr class="device-row-click" onclick="openSwitchDetail(${a.id})">
       <td><strong>${a.name}</strong></td><td>${a.ip_address}</td>${extra}
       <td class="status-${a.status}">${a.status}</td>
       <td>${a.last_seen ? localeDate(a.last_seen) : dash}</td>
-      <td><button class="btn-sm" onclick="${pollFn}(${a.id});openDatacenterDetail(${selectedDatacenterId})">${t('common.poll')}</button></td>
+      <td>
+        ${type === 'device' ? `<button class="btn-sm device-manage-btn" onclick="event.stopPropagation();openSwitchDetail(${a.id})">${t('devices.manage')}</button>` : ''}
+        <button class="btn-sm" onclick="event.stopPropagation();${pollFn}(${a.id});openDatacenterDetail(${selectedDatacenterId})">${t('common.poll')}</button>
+      </td>
     </tr>`;
   }).join('');
 }
@@ -639,13 +642,16 @@ async function loadDevices() {
   const devices = await api('/devices');
   const tbody = document.querySelector('#devices-table tbody');
   tbody.innerHTML = devices.map(d => `
-    <tr>
-      <td>${d.name}</td>
+    <tr class="device-row-click" onclick="openSwitchDetail(${d.id})">
+      <td><strong>${d.name}</strong></td>
       <td>${d.ip_address}</td>
       <td>${d.vendor}</td>
       <td class="status-${d.status}">${d.status}</td>
       <td>${d.last_seen ? localeDate(d.last_seen) : t('common.dash')}</td>
-      <td><button class="btn-sm" onclick="pollDevice(${d.id})">${t('common.poll')}</button></td>
+      <td>
+        <button class="btn-sm device-manage-btn" onclick="event.stopPropagation();openSwitchDetail(${d.id})">${t('devices.manage')}</button>
+        <button class="btn-sm" onclick="event.stopPropagation();pollDevice(${d.id})">${t('common.poll')}</button>
+      </td>
     </tr>
   `).join('') || `<tr><td colspan="6" style="text-align:center;color:var(--muted)">${t('devices.no_devices')}</td></tr>`;
 }
@@ -808,6 +814,7 @@ async function pollDevice(id) {
     const result = await api(`/devices/${id}/poll`, { method: 'POST' });
     alert(result.success ? t('devices.poll_ok', { protocol: result.protocol }) : t('devices.poll_fail', { error: result.error }));
     loadDevices();
+    if (currentSwitchDetail?.device?.id === id) await openSwitchDetail(id);
   } catch (e) { alert(e.message); }
 }
 
@@ -1059,12 +1066,46 @@ function renderNetctrlSwitches(devices) {
 let switchLocalNetwork = null;
 let currentSwitchDetail = null;
 let selectedSwitchPort = null;
+let switchConfigText = '';
+
+function switchPortTableRows(ports, clickHandler = 'showPortDetail') {
+  return ports.map(p => {
+    const peer = p.peer ? `${p.peer.device_name}:${p.peer.port_name || '?'}` : '—';
+    const util = p.settings?.utilization_pct ?? 0;
+    return `<tr class="switch-port-row" onclick="${clickHandler}(${p.id})" style="cursor:pointer">
+      <td><code>${p.name}</code></td>
+      <td class="status-${p.oper_status}">${p.oper_status}</td>
+      <td>${p.speed_mbps} Mbps</td>
+      <td>${p.vlan_info.summary}</td>
+      <td>${peer}${p.link_type_label ? ` (${p.link_type_label})` : ''}</td>
+      <td>${(p.services || []).join(', ') || '—'}</td>
+      <td>${util}% · ${p.settings?.avg_pps?.toLocaleString() || 0} pps</td>
+      <td>${p.description || '—'}</td>
+    </tr>`;
+  }).join('');
+}
+
+function escapeSwitchHtml(str) {
+  return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function loadSwitchConfigText(deviceId) {
+  switchConfigText = '';
+  try {
+    const backups = await api(`/backups?device_id=${deviceId}&limit=1`);
+    if (backups.length) {
+      const detail = await api(`/backups/${backups[0].id}`);
+      switchConfigText = detail.config_text || '';
+    }
+  } catch (_) { /* ignore */ }
+}
 
 async function openSwitchDetail(deviceId) {
   if (!deviceId) return;
   try {
     const detail = await api(`/network/devices/${deviceId}/detail`);
     currentSwitchDetail = detail;
+    await loadSwitchConfigText(deviceId);
     renderSwitchDetailModal(detail);
     document.getElementById('switch-detail-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -1091,6 +1132,20 @@ function renderSwitchDetailModal(d) {
   if (syncBtn) {
     syncBtn.classList.toggle('hidden', !dev.snmp_inventory || !hasPerm('manage_devices'));
     syncBtn.onclick = () => syncSwitchSnmp(dev.id);
+  }
+  const pollBtn = document.getElementById('switch-detail-poll');
+  if (pollBtn) pollBtn.onclick = () => pollDevice(dev.id);
+  const backupBtn = document.getElementById('switch-detail-backup');
+  if (backupBtn) {
+    backupBtn.classList.toggle('hidden', !hasPerm('manage_devices'));
+    backupBtn.onclick = async () => {
+      try {
+        await api(`/backups/devices/${dev.id}`, { method: 'POST' });
+        await loadSwitchConfigText(dev.id);
+        activateSwitchDetailTab('config');
+        renderSwitchConfigTabs();
+      } catch (e) { alert(e.message); }
+    };
   }
 
   document.getElementById('switch-detail-insights').innerHTML =
@@ -1129,23 +1184,40 @@ function renderSwitchDetailModal(d) {
         <th>${t('netctrl.vlan')}</th><th>${t('netctrl.connection')}</th><th>${t('netctrl.services')}</th>
         <th>${t('netctrl.cap.util')}</th><th>${t('common.desc')}</th>
       </tr></thead>
-      <tbody>${d.ports.map(p => {
-        const peer = p.peer ? `${p.peer.device_name}:${p.peer.port_name || '?'}` : '—';
-        const util = p.settings?.utilization_pct ?? 0;
-        return `<tr class="switch-port-row" onclick="showPortDetail(${p.id})" style="cursor:pointer">
-          <td><code>${p.name}</code></td>
-          <td class="status-${p.oper_status}">${p.oper_status}</td>
-          <td>${p.speed_mbps} Mbps</td>
-          <td>${p.vlan_info.summary}</td>
-          <td>${peer}${p.link_type_label ? ` (${p.link_type_label})` : ''}</td>
-          <td>${(p.services || []).join(', ') || '—'}</td>
-          <td>${util}% · ${p.settings?.avg_pps?.toLocaleString() || 0} pps</td>
-          <td>${p.description || '—'}</td>
-        </tr>`;
-      }).join('')}</tbody>
+      <tbody>${switchPortTableRows(d.ports)}</tbody>
     </table>
     <div id="switch-port-detail-pop"></div>
   `;
+
+  const accessPorts = d.ports.filter(p => p.vlan_mode === 'access');
+  const trunkPorts = d.ports.filter(p => p.vlan_mode === 'trunk');
+
+  document.getElementById('switch-tab-access').innerHTML = accessPorts.length ? `
+    <table>
+      <thead><tr>
+        <th>${t('netctrl.port')}</th><th>${t('common.status')}</th><th>${t('netctrl.speed')}</th>
+        <th>${t('netctrl.vlan')}</th><th>${t('netctrl.connection')}</th><th>${t('common.desc')}</th>
+      </tr></thead>
+      <tbody>${switchPortTableRows(accessPorts)}</tbody>
+    </table>
+  ` : `<p class="muted">${t('netctrl.no_access_ports')}</p>`;
+
+  document.getElementById('switch-tab-trunks').innerHTML = trunkPorts.length ? `
+    <table>
+      <thead><tr>
+        <th>${t('netctrl.port')}</th><th>${t('common.status')}</th><th>${t('netctrl.speed')}</th>
+        <th>${t('netctrl.trunk_vlans')}</th><th>${t('netctrl.connection')}</th><th>${t('common.desc')}</th>
+      </tr></thead>
+      <tbody>${trunkPorts.map(p => `<tr class="switch-port-row" onclick="showPortDetail(${p.id})" style="cursor:pointer">
+        <td><code>${p.name}</code></td>
+        <td class="status-${p.oper_status}">${p.oper_status}</td>
+        <td>${p.speed_mbps} Mbps</td>
+        <td>${(p.vlan_info.vlan_ids || []).join(', ') || p.vlan_info.summary}</td>
+        <td>${p.peer ? `${p.peer.device_name}:${p.peer.port_name || '?'}` : '—'}</td>
+        <td>${p.description || '—'}</td>
+      </tr>`).join('')}</tbody>
+    </table>
+  ` : `<p class="muted">${t('netctrl.no_trunks')}</p>`;
 
   document.getElementById('switch-tab-grid').innerHTML = `
     <div class="port-grid">${d.ports.map(p => {
@@ -1198,8 +1270,19 @@ function renderSwitchDetailModal(d) {
     </tr>`).join('')}</tbody></table>
   ` : `<p class="muted">${t('netctrl.no_firewall')}</p>`;
 
+  renderSwitchConfigTabs();
   activateSwitchDetailTab('ports');
   renderSwitchLocalTopology(d.local_topology);
+}
+
+function renderSwitchConfigTabs() {
+  const configHtml = switchConfigText
+    ? `<pre class="switch-console">${escapeSwitchHtml(switchConfigText)}</pre>`
+    : `<p class="muted">${t('netctrl.config_empty')}</p>`;
+  document.getElementById('switch-tab-config').innerHTML = configHtml;
+  document.getElementById('switch-tab-console').innerHTML = switchConfigText
+    ? `<p class="muted">${t('netctrl.console_hint')}</p><pre class="switch-console">${escapeSwitchHtml(switchConfigText)}</pre>`
+    : `<p class="muted">${t('netctrl.config_empty')}</p>`;
 }
 
 function showPortDetail(portId) {
@@ -1250,6 +1333,9 @@ function activateSwitchDetailTab(name) {
   document.querySelectorAll('.switch-dtab').forEach(t => t.classList.toggle('active', t.dataset.switchTab === name));
   document.querySelectorAll('.switch-tab-panel').forEach(p => p.classList.add('hidden'));
   document.getElementById(`switch-tab-${name}`)?.classList.remove('hidden');
+  if ((name === 'config' || name === 'console') && currentSwitchDetail?.device?.id && !switchConfigText) {
+    loadSwitchConfigText(currentSwitchDetail.device.id).then(renderSwitchConfigTabs);
+  }
 }
 
 document.querySelectorAll('.switch-dtab').forEach(tab => {
