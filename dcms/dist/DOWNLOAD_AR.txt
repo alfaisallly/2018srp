@@ -1,0 +1,20 @@
+DCMS — كابتن طه — Windows Server
+==================================
+
+ملف التحميل:
+  dcms-1.1.0-enterprise-windows.zip
+
+رابط التحميل المباشر:
+  https://github.com/alfaisallly/2018srp/raw/cursor/windows-zip-download-bdad/dcms/dist/dcms-1.1.0-enterprise-windows.zip
+
+SHA256:
+  0b6412aa74e3fa5978b20188df24402e1c9a5015e38aa242cbc65e1a2e04984d
+
+بعد التحميل على Windows Server:
+  1. فك الضغط إلى C:\DCMS
+  2. PowerShell كمسؤول → cd C:\DCMS
+  3. .\INSTALL.bat
+  4. افتح http://localhost:8080
+  5. admin / admin123
+
+دليل التثبيت: docs\INSTALL_WINDOWS_AR.md داخل المجلد
