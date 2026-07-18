@@ -1,4 +1,4 @@
-DCMS — كابتن طه — Windows Server
+DCMS — Windows Server
 ==================================
 
 ملف التحميل:
@@ -8,7 +8,7 @@ DCMS — كابتن طه — Windows Server
   https://github.com/alfaisallly/2018srp/raw/cursor/windows-zip-download-bdad/dcms/dist/dcms-1.1.0-enterprise-windows.zip
 
 SHA256:
-  0b6412aa74e3fa5978b20188df24402e1c9a5015e38aa242cbc65e1a2e04984d
+  a6b981922b59e789433365ec0a7ef95e933c55d6fd8b5e81fd1653b1f699f21f
 
 بعد التحميل على Windows Server:
   1. فك الضغط إلى C:\DCMS
