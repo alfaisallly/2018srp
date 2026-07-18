@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="/static/style.css?v=13">
+  <link rel="stylesheet" href="/static/style.css?v=14">
   <script src="/static/theme.js?v=11"></script>
   <script>ThemeStudio.load();</script>
 </head>
@@ -966,8 +966,30 @@
 
   <button id="theme-fab" class="theme-fab" type="button" aria-label="Theme Studio" title="Theme">🎨</button>
 
-  <script src="/static/i18n.js?v=13"></script>
+  <!-- Capability Module Modal -->
+  <div id="capability-modal" class="capability-modal hidden" role="dialog" aria-modal="true" aria-hidden="true">
+    <div class="capability-modal-backdrop" id="capability-modal-backdrop"></div>
+    <div class="capability-modal-panel card">
+      <div class="capability-modal-header">
+        <div class="capability-modal-title">
+          <span id="capability-modal-icon" class="capability-modal-icon">🏢</span>
+          <div>
+            <h2 id="capability-modal-title">—</h2>
+            <p id="capability-modal-desc" class="muted"></p>
+          </div>
+        </div>
+        <div class="capability-modal-actions">
+          <button id="capability-modal-goto" class="btn-secondary hidden" type="button" data-i18n="capabilities.open_panel">فتح اللوحة</button>
+          <button id="capability-modal-close" class="btn-secondary btn-icon" type="button" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div id="capability-modal-metrics" class="capability-modal-metrics"></div>
+      <div id="capability-modal-body" class="capability-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/static/i18n.js?v=14"></script>
   <script>I18n.init(); ThemeStudio.bindAppearancePanel(); ThemeStudio.syncPanelControls();</script>
-  <script src="/static/app.js?v=13"></script>
+  <script src="/static/app.js?v=14"></script>
 </body>
 </html>

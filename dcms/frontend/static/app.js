@@ -1095,7 +1095,7 @@ async function loadSwitchConfigText(deviceId) {
     const backups = await api(`/backups?device_id=${deviceId}&limit=1`);
     if (backups.length) {
       const detail = await api(`/backups/${backups[0].id}`);
-      switchConfigText = detail.config_text || '';
+      switchConfigText = detail.content || detail.config_text || '';
     }
   } catch (_) { /* ignore */ }
 }
@@ -1927,15 +1927,19 @@ document.getElementById('seed-sensors')?.addEventListener('click', async () => {
 });
 
 // --- Platform Capabilities ---
+let capabilitiesCache = { modules: [], metrics: {} };
+let currentCapabilityId = null;
+
 async function loadCapabilities() {
   const section = document.getElementById('capabilities-section');
   const grid = document.getElementById('capabilities-grid');
   if (!section || !grid) return;
   try {
     const data = await api('/platform/capabilities');
+    capabilitiesCache = data;
     section.classList.remove('hidden');
     grid.innerHTML = (data.modules || []).map(m => `
-      <div class="capability-card ${m.active ? 'active' : ''}">
+      <div class="capability-card ${m.active ? 'active' : ''}" onclick="openCapabilityModal('${m.id}')" role="button" tabindex="0">
         <div class="capability-icon">${m.icon}</div>
         <h4>${t(m.title_key)}</h4>
         <p class="muted">${t(m.description_key)}</p>
@@ -1946,6 +1950,250 @@ async function loadCapabilities() {
     section.classList.add('hidden');
   }
 }
+
+function closeCapabilityModal() {
+  document.getElementById('capability-modal')?.classList.add('hidden');
+  document.getElementById('capability-modal')?.setAttribute('aria-hidden', 'true');
+  document.body.style.overflow = '';
+  currentCapabilityId = null;
+}
+
+function renderCapMetrics(items) {
+  const el = document.getElementById('capability-modal-metrics');
+  if (!el) return;
+  el.innerHTML = items.map(([label, value]) => `
+    <div class="cap-metric"><strong>${value}</strong><span>${label}</span></div>
+  `).join('');
+}
+
+function setCapabilityGoto(panel, closeModal = true) {
+  const btn = document.getElementById('capability-modal-goto');
+  if (!btn) return;
+  if (!panel) {
+    btn.classList.add('hidden');
+    btn.onclick = null;
+    return;
+  }
+  btn.classList.remove('hidden');
+  btn.textContent = t('capabilities.open_panel');
+  btn.onclick = () => {
+    if (closeModal) closeCapabilityModal();
+    showPanel(panel);
+    if (panel === 'devices') loadDevices();
+    if (panel === 'ipam') loadIpam();
+    if (panel === 'backups') loadBackups();
+    if (panel === 'integrations') loadIntegrations();
+    if (panel === 'sensors') loadSensors();
+    if (panel === 'network-control') loadNetworkControl();
+    if (panel === 'dashboard') loadDashboard();
+  };
+}
+
+async function renderCapabilityCiscoJuniper(body, metrics) {
+  const devices = await api('/network/devices');
+  const filtered = devices.filter(d => d.vendor === 'cisco' || d.vendor === 'juniper');
+  renderCapMetrics([
+    [t('capabilities.devices_count'), metrics.cisco_juniper_devices || filtered.length],
+    [t('common.status'), filtered.filter(d => d.status === 'online').length + ' online'],
+    [t('netctrl.tab.switches'), filtered.filter(d => d.device_type === 'switch').length],
+  ]);
+  setCapabilityGoto('network-control');
+
+  if (!filtered.length) {
+    body.innerHTML = `
+      <p class="muted">${t('capabilities.no_cisco_juniper')}</p>
+      <div class="cap-actions-row">
+        <button type="button" onclick="closeCapabilityModal();showPanel('devices');loadDevices();">${t('devices.add')}</button>
+      </div>`;
+    return;
+  }
+
+  body.innerHTML = `
+    <div class="cap-actions-row">
+      <button type="button" onclick="syncTransportFromCapability()">${t('capabilities.sync_all_snmp')}</button>
+      <button type="button" class="btn-secondary" onclick="closeCapabilityModal();showPanel('devices');loadDevices();">${t('devices.title')}</button>
+    </div>
+    <h4>${t('capabilities.switches_list')}</h4>
+    <div class="cap-device-grid">${filtered.map(d => `
+      <div class="cap-device-card" onclick="openSwitchFromCapability(${d.id})">
+        <h4>${d.name}</h4>
+        <p class="muted">${vendorLabel(d.vendor)} · ${deviceTypeLabel(d.device_type)} · ${d.ip_address}</p>
+        <p class="status-${d.status}">${d.status}</p>
+        <button type="button" class="btn-sm" style="margin-top:0.5rem" onclick="event.stopPropagation();openSwitchFromCapability(${d.id})">${t('capabilities.open_switch')}</button>
+      </div>`).join('')}
+    </div>`;
+}
+
+async function openSwitchFromCapability(deviceId) {
+  closeCapabilityModal();
+  await openSwitchDetail(deviceId);
+}
+
+async function syncTransportFromCapability() {
+  try {
+    const r = await api('/network/sync-transport', { method: 'POST' });
+    alert(t('netctrl.sync_transport_ok', r) || 'Sync complete');
+    if (currentCapabilityId === 'cisco_juniper') {
+      const body = document.getElementById('capability-modal-body');
+      await renderCapabilityCiscoJuniper(body, capabilitiesCache.metrics || {});
+    }
+  } catch (e) { alert(e.message); }
+}
+
+async function renderCapabilityDatacenters(body, metrics) {
+  const dcs = await api('/datacenters');
+  renderCapMetrics([[t('capabilities.datacenters'), metrics.datacenters || dcs.length]]);
+  setCapabilityGoto('dashboard');
+  if (!dcs.length) {
+    body.innerHTML = `<p class="muted">${t('capabilities.no_datacenters')}</p>`;
+    return;
+  }
+  body.innerHTML = `<table class="device-detail-table"><thead><tr>
+    <th>${t('common.name')}</th><th>${t('common.location')}</th><th>${t('common.action')}</th>
+  </tr></thead><tbody>${dcs.map(dc => `<tr>
+    <td><strong>${dc.name}</strong></td><td>${dc.location || '—'}</td>
+    <td><button class="btn-sm" onclick="openDcFromCapability(${dc.id})">${t('capabilities.open_dc')}</button></td>
+  </tr>`).join('')}</tbody></table>`;
+}
+
+function openDcFromCapability(dcId) {
+  closeCapabilityModal();
+  showPanel('dashboard');
+  openDatacenterDetail(dcId, 'overview');
+}
+
+async function renderCapabilityIpam(body, metrics) {
+  const prefixes = await api('/ipam/prefixes');
+  renderCapMetrics([[t('capabilities.ipam'), metrics.ip_prefixes || prefixes.length]]);
+  setCapabilityGoto('ipam');
+  body.innerHTML = prefixes.length ? `
+    <table class="device-detail-table"><thead><tr>
+      <th>${t('ipam.cidr')}</th><th>${t('ipam.vlan')}</th><th>${t('common.action')}</th>
+    </tr></thead><tbody>${prefixes.slice(0, 20).map(p => `<tr>
+      <td><strong>${p.cidr}</strong></td><td>${p.vlan || '—'}</td>
+      <td><button class="btn-sm" onclick="closeCapabilityModal();showPanel('ipam');openIpamPrefix(${p.id}, '${p.cidr}')">${t('common.view')}</button></td>
+    </tr>`).join('')}</tbody></table>` : `<p class="muted">${t('ipam.no_prefixes')}</p>`;
+}
+
+async function renderCapabilitySnmp(body, metrics) {
+  const sensors = await api('/sensors');
+  renderCapMetrics([[t('capabilities.snmp'), metrics.sensors || sensors.length]]);
+  setCapabilityGoto('sensors');
+  body.innerHTML = `
+    <div class="cap-actions-row"><button onclick="closeCapabilityModal();showPanel('devices');document.getElementById('poll-all-devices')?.click();">${t('devices.poll_all')}</button></div>
+    <table class="device-detail-table"><thead><tr>
+      <th>${t('sensors.sensor')}</th><th>${t('sensors.value')}</th><th>${t('common.status')}</th>
+    </tr></thead><tbody>${sensors.slice(0, 15).map(s => `<tr>
+      <td>${s.name}</td><td>${s.last_value ?? '—'} ${s.unit || ''}</td><td class="status-${s.last_status}">${s.status_label || s.last_status}</td>
+    </tr>`).join('') || `<tr><td colspan="3" class="muted">—</td></tr>`}</tbody></table>`;
+}
+
+async function renderCapabilityBackup(body, metrics) {
+  const [backups, devices] = await Promise.all([api('/backups?limit=20'), api('/devices')]);
+  const names = Object.fromEntries(devices.map(d => [d.id, d.name]));
+  renderCapMetrics([[t('capabilities.config_backup'), metrics.config_backups || backups.length]]);
+  setCapabilityGoto('backups');
+  body.innerHTML = `
+    <div class="cap-actions-row">
+      <button onclick="runBackupFromCapability()">${t('capabilities.run_backup_all')}</button>
+    </div>
+    <table class="device-detail-table"><thead><tr>
+      <th>${t('common.device')}</th><th>${t('common.date')}</th><th>${t('common.action')}</th>
+    </tr></thead><tbody>${backups.map(b => `<tr>
+      <td>${names[b.device_id] || b.device_id}</td><td>${localeDate(b.collected_at)}</td>
+      <td><button class="btn-sm" onclick="viewBackupFromCapability(${b.id})">${t('common.view')}</button></td>
+    </tr>`).join('') || `<tr><td colspan="3" class="muted">—</td></tr>`}</tbody></table>`;
+}
+
+async function runBackupFromCapability() {
+  try {
+    await api('/backups/run-all', { method: 'POST' });
+    alert(t('backups.run_all_ok') || 'Done');
+    const body = document.getElementById('capability-modal-body');
+    await renderCapabilityBackup(body, capabilitiesCache.metrics || {});
+  } catch (e) { alert(e.message); }
+}
+
+function viewBackupFromCapability(id) {
+  closeCapabilityModal();
+  showPanel('backups');
+  viewBackup(id);
+}
+
+async function renderCapabilityWebDashboard(body) {
+  renderCapMetrics([[t('capabilities.web_dashboard'), '✓']]);
+  setCapabilityGoto(null);
+  body.innerHTML = `
+    <p class="muted">${t('capabilities.web_dashboard_desc')}</p>
+    <div class="cap-actions-row">
+      <button onclick="closeCapabilityModal();document.getElementById('open-appearance')?.click();">${t('capabilities.open_theme')}</button>
+      <button class="btn-secondary" onclick="closeCapabilityModal();showPanel('dashboard');">${t('nav.dashboard')}</button>
+    </div>`;
+}
+
+async function renderCapabilityIntegration(body, metrics, type) {
+  const items = await api('/integrations');
+  const filtered = items.filter(i => i.integration_type === type);
+  const key = type === 'prtg' ? 'prtg_integrations' : 'vmware_integrations';
+  renderCapMetrics([[t(`capabilities.${type}`), metrics[key] || filtered.length]]);
+  setCapabilityGoto('integrations');
+  body.innerHTML = filtered.length ? `
+    <table class="device-detail-table"><thead><tr>
+      <th>${t('common.name')}</th><th>URL</th><th>${t('common.action')}</th>
+    </tr></thead><tbody>${filtered.map(i => `<tr>
+      <td>${i.name}</td><td><a href="${i.base_url}" target="_blank" rel="noopener">${i.base_url}</a></td>
+      <td>
+        <button class="btn-sm" onclick="syncIntegrationFromCapability(${i.id})">${t('integrations.sync')}</button>
+        <button class="btn-sm btn-secondary" onclick="viewIntegrationFromCapability(${i.id})">${t('common.view')}</button>
+      </td>
+    </tr>`).join('')}</tbody></table>` : `<p class="muted">${t('integrations.no_items')}</p>
+    <button onclick="closeCapabilityModal();showPanel('integrations');">${t('integrations.add')}</button>`;
+}
+
+async function syncIntegrationFromCapability(id) {
+  try {
+    await api(`/integrations/${id}/sync`, { method: 'POST' });
+    alert(t('integrations.sync_ok'));
+  } catch (e) { alert(e.message); }
+}
+
+function viewIntegrationFromCapability(id) {
+  closeCapabilityModal();
+  showPanel('integrations');
+  viewIntegration(id);
+}
+
+const CAPABILITY_RENDERERS = {
+  datacenters: renderCapabilityDatacenters,
+  cisco_juniper: renderCapabilityCiscoJuniper,
+  ipam: renderCapabilityIpam,
+  snmp: renderCapabilitySnmp,
+  config_backup: renderCapabilityBackup,
+  web_dashboard: renderCapabilityWebDashboard,
+  prtg: (body, m) => renderCapabilityIntegration(body, m, 'prtg'),
+  vmware: (body, m) => renderCapabilityIntegration(body, m, 'vmware'),
+};
+
+async function openCapabilityModal(capId) {
+  const mod = capabilitiesCache.modules?.find(m => m.id === capId);
+  if (!mod) return;
+  currentCapabilityId = capId;
+  document.getElementById('capability-modal-icon').textContent = mod.icon;
+  document.getElementById('capability-modal-title').textContent = t(mod.title_key);
+  document.getElementById('capability-modal-desc').textContent = t(mod.description_key);
+  const body = document.getElementById('capability-modal-body');
+  body.innerHTML = `<p class="muted">...</p>`;
+  document.getElementById('capability-modal')?.classList.remove('hidden');
+  document.getElementById('capability-modal')?.setAttribute('aria-hidden', 'false');
+  document.body.style.overflow = 'hidden';
+  const renderer = CAPABILITY_RENDERERS[capId];
+  if (renderer) await renderer(body, capabilitiesCache.metrics || {});
+  else body.innerHTML = `<p class="muted">${t(mod.description_key)}</p>`;
+}
+
+document.getElementById('capability-modal-close')?.addEventListener('click', closeCapabilityModal);
+document.getElementById('capability-modal-backdrop')?.addEventListener('click', closeCapabilityModal);
+window.openCapabilityModal = openCapabilityModal;
 
 // --- IPAM ---
 let selectedPrefixId = null;
