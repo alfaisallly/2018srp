@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title data-i18n="app.title">DCMS - إدارة مراكز البيانات</title>
+  <script src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Cairo:wght@400;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Almarai:wght@400;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v=11">
+  <script src="/static/theme.js?v=11"></script>
+  <script>ThemeStudio.load();</script>
+</head>
+<body>
+  <div class="lang-switcher lang-switcher-corner" id="lang-switcher">
+    <select id="lang-select" class="lang-select lang-select-compact" aria-label="Language">
+      <option value="ar">🇮🇶 العربية</option>
+      <option value="en">🇬🇧 English</option>
+    </select>
+  </div>
+  <header>
+    <h1 data-i18n="app.heading">DCMS — نظام إدارة مراكز البيانات</h1>
+    <div class="header-actions">
+      <button id="open-appearance" class="btn-secondary btn-icon" type="button" title="Theme" aria-label="Theme">🎨</button>
+      <div id="user-info"></div>
+      <button id="logout-btn" class="btn-secondary btn-logout hidden" data-i18n="header.logout">خروج</button>
+    </div>
+  </header>
+
+  <nav>
+    <button class="nav-btn active" data-panel="dashboard" data-i18n="nav.dashboard">لوحة التحكم</button>
+    <button class="nav-btn" data-panel="devices" data-perm="view" data-i18n="nav.devices">الشبكة</button>
+    <button class="nav-btn" data-panel="servers" data-perm="view" data-i18n="nav.servers">السيرفرات</button>
+    <button class="nav-btn" data-panel="storage" data-perm="view" data-i18n="nav.storage">التخزين</button>
+    <button class="nav-btn" data-panel="network-map" data-perm="view" data-i18n="nav.network_map">خريطة الشبكة</button>
+    <button class="nav-btn" data-panel="network-control" data-perm="view" data-i18n="nav.network_control">إدارة الشبكة</button>
+    <button class="nav-btn" data-panel="sensors" data-perm="view" data-i18n="nav.sensors">الحساسات</button>
+    <button class="nav-btn" data-panel="alerts" data-perm="view" data-i18n="nav.alerts">التنبيهات</button>
+    <button class="nav-btn" data-panel="reports" data-perm="view_reports" data-i18n="nav.reports">التقارير</button>
+    <button class="nav-btn" data-panel="ipam" data-perm="view" data-i18n="nav.ipam">IPAM</button>
+    <button class="nav-btn" data-panel="backups" data-perm="view" data-i18n="nav.backups">النسخ الاحتياطي</button>
+    <button class="nav-btn" data-panel="integrations" data-perm="view" data-i18n="nav.integrations">التكاملات</button>
+    <button class="nav-btn" data-panel="import-excel" data-perm="manage_devices" id="nav-import" data-i18n="nav.import_excel">استيراد Excel</button>
+    <button class="nav-btn hidden" data-panel="users" data-perm="manage_users" id="nav-users" data-i18n="nav.users">المستخدمين</button>
+  </nav>
+
+  <main>
+    <!-- Login -->
+    <section id="login-panel" class="panel login-screen">
+      <div class="login-screen-content">
+        <div class="card login-card">
+          <h2 data-i18n="login.title">تسجيل الدخول</h2>
+          <form id="login-form">
+            <label><span data-i18n="login.username">اسم المستخدم</span><input type="text" id="username" required value="admin"></label>
+            <label><span data-i18n="login.password">كلمة المرور</span><input type="password" id="password" required value="admin123"></label>
+            <button type="submit" data-i18n="login.submit">دخول</button>
+          </form>
+          <p id="login-error" class="error"></p>
+        </div>
+      </div>
+      <footer class="login-footer">
+        <p data-i18n="login.copyright">© 2026 — جميع الحقوق عائدة لمديرية المرور — قسم الاتصالات</p>
+      </footer>
+    </section>
+
+    <!-- Dashboard -->
+    <section id="dashboard-panel" class="panel hidden">
+      <div class="stats-grid" id="stats-grid"></div>
+
+      <div id="capabilities-section" class="card capabilities-section hidden">
+        <h2 data-i18n="capabilities.title">قدرات المنصة</h2>
+        <p class="muted" data-i18n="capabilities.subtitle">نظام متكامل لإدارة مراكز البيانات والشبكة والمراقبة</p>
+        <div id="capabilities-grid" class="capabilities-grid"></div>
+      </div>
+
+      <div id="dc-list-view">
+        <div class="card">
+          <div class="toolbar">
+            <h2 data-i18n="dc.title">مراكز البيانات</h2>
+            <div class="toolbar-actions">
+              <button id="show-add-dc" class="btn-secondary hidden" data-i18n="dc.add">+ إضافة مركز بيانات</button>
+            </div>
+          </div>
+          <p class="muted dc-hint" data-i18n="dc.list_hint">انقر على مركز لعرض تفاصيله (الشبكة، الخوادم، التخزين، المخطط، التنبيهات)</p>
+          <div id="add-dc-form" class="sub-form hidden">
+            <h3 data-i18n="dc.add_title">إضافة مركز بيانات</h3>
+            <form id="dc-create-form">
+              <div class="form-grid">
+                <label><span data-i18n="dc.name">الاسم</span><input type="text" id="dc-name" required data-i18n-placeholder="dc.name_placeholder" placeholder="DC-MOROOR-01"></label>
+                <label><span data-i18n="dc.location">الموقع</span><input type="text" id="dc-location" data-i18n-placeholder="dc.location_placeholder" placeholder="بغداد"></label>
+                <label><span data-i18n="dc.email">البريد</span><input type="email" id="dc-email" data-i18n-placeholder="dc.email_placeholder" placeholder="admin@example.com"></label>
+                <label><span data-i18n="dc.description">الوصف</span><textarea id="dc-desc" rows="2" data-i18n-placeholder="dc.desc_placeholder" placeholder="وصف المركز"></textarea></label>
+              </div>
+              <div class="form-actions">
+                <button type="submit" data-i18n="common.save">حفظ</button>
+                <button type="button" id="cancel-add-dc" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+              </div>
+            </form>
+          </div>
+          <div id="datacenters-grid" class="dc-grid"></div>
+        </div>
+      </div>
+
+      <div id="dc-detail-view" class="hidden dc-portal">
+        <div class="dc-portal-hero">
+          <div class="dc-hero-top">
+            <button id="back-to-dcs" class="btn-secondary dc-back-btn" data-i18n="dc.back_all">← جميع المراكز</button>
+            <div class="dc-hero-actions">
+              <button id="dc-refresh-btn" class="btn-secondary" data-i18n="dc.portal.refresh">↻ تحديث</button>
+              <button id="dc-poll-all-btn" class="btn-secondary" data-i18n="dc.portal.poll_all">⚡ فحص الأصول</button>
+              <button id="dc-download-report-hero" data-i18n="dc.download_report">📄 تقرير PDF</button>
+            </div>
+          </div>
+          <div class="dc-hero-main">
+            <div class="dc-hero-info">
+              <span id="dc-health-badge" class="dc-health-badge healthy" data-i18n="dc.portal.health_healthy">سليم</span>
+              <h1 id="dc-detail-name"></h1>
+              <p id="dc-detail-location" class="muted"></p>
+              <div id="dc-hero-meta" class="dc-hero-meta"></div>
+            </div>
+            <div class="dc-health-ring-wrap">
+              <div class="dc-health-ring" id="dc-health-ring">
+                <span id="dc-health-score">—</span>
+              </div>
+              <span class="dc-health-ring-label" data-i18n="dc.portal.health_score">مؤشر الصحة</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="dc-detail-stats" class="dc-kpi-row"></div>
+
+        <div class="dc-portal-body">
+          <aside class="dc-sidebar card">
+            <h3 class="dc-sidebar-title" data-i18n="dc.portal.sections">أقسام المركز</h3>
+            <nav class="dc-sidebar-nav" id="dc-tabs">
+              <button class="dc-tab active" data-dc-tab="overview"><span class="dc-tab-icon">📊</span><span data-i18n="dc.tab.overview">نظرة عامة</span></button>
+              <button class="dc-tab" data-dc-tab="monitoring"><span class="dc-tab-icon">📡</span><span data-i18n="dc.tab.monitoring">المراقبة</span></button>
+              <button class="dc-tab" data-dc-tab="switches"><span class="dc-tab-icon">🔀</span><span data-i18n="dc.tab.switches">السويجات</span><span class="dc-tab-count" id="dc-count-switches">0</span></button>
+              <button class="dc-tab" data-dc-tab="firewalls"><span class="dc-tab-icon">🛡️</span><span data-i18n="dc.tab.firewalls">جدران الحماية</span><span class="dc-tab-count" id="dc-count-firewalls">0</span></button>
+              <button class="dc-tab" data-dc-tab="servers"><span class="dc-tab-icon">🖥️</span><span data-i18n="dc.tab.servers">الخوادم</span><span class="dc-tab-count" id="dc-count-servers">0</span></button>
+              <button class="dc-tab" data-dc-tab="storage"><span class="dc-tab-icon">💾</span><span data-i18n="dc.tab.storage">التخزين</span><span class="dc-tab-count" id="dc-count-storage">0</span></button>
+              <button class="dc-tab" data-dc-tab="topology"><span class="dc-tab-icon">🗺️</span><span data-i18n="dc.tab.topology">مخطط الربط</span></button>
+              <button class="dc-tab" data-dc-tab="alerts"><span class="dc-tab-icon">⚠️</span><span data-i18n="dc.tab.alerts">التنبيهات</span><span class="dc-tab-count dc-tab-count-alert" id="dc-count-alerts">0</span></button>
+              <button class="dc-tab" data-dc-tab="reports"><span class="dc-tab-icon">📋</span><span data-i18n="dc.tab.reports">التقارير</span></button>
+            </nav>
+            <div class="dc-sidebar-health card-inner" id="dc-sidebar-health"></div>
+          </aside>
+          <div id="dc-tab-content" class="dc-portal-main card"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Devices -->
+    <section id="devices-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="devices.title">الأجهزة</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-device" class="btn-secondary" data-i18n="devices.add">+ إضافة جهاز</button>
+            <button id="show-discover" class="btn-secondary" data-i18n="devices.discover">🔍 مسح الشبكة</button>
+            <button id="poll-all-devices" data-i18n="devices.poll_all">فحص الكل</button>
+            <button id="refresh-devices" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+
+        <!-- Add Device Form -->
+        <div id="add-device-form" class="sub-form hidden">
+          <h3 data-i18n="devices.add_title">إضافة جهاز جديد</h3>
+          <form id="device-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="devices.datacenter">مركز البيانات</span><select id="dev-dc" required></select></label>
+              <label><span data-i18n="devices.name">الاسم</span><input type="text" id="dev-name" required data-i18n-placeholder="devices.name_placeholder" placeholder="Core-SW-01"></label>
+              <label><span data-i18n="devices.hostname">Hostname</span><input type="text" id="dev-hostname" required data-i18n-placeholder="devices.hostname_placeholder" placeholder="core-sw-01"></label>
+              <label><span data-i18n="devices.ip">IP Address</span><input type="text" id="dev-ip" required data-i18n-placeholder="devices.ip_placeholder" placeholder="172.16.10.1"></label>
+              <label><span data-i18n="devices.vendor">المورّد</span>
+                <select id="dev-vendor" required>
+                  <option value="cisco" data-i18n="vendor.cisco">Cisco</option>
+                  <option value="juniper" data-i18n="vendor.juniper">Juniper</option>
+                  <option value="fortinet" data-i18n="vendor.fortinet">Fortinet</option>
+                </select>
+              </label>
+              <label><span data-i18n="devices.type">نوع الجهاز</span>
+                <select id="dev-type" required>
+                  <option value="switch" data-i18n="device_type.switch">سويج</option>
+                  <option value="firewall" data-i18n="device_type.firewall">جدار حماية</option>
+                  <option value="router" data-i18n="device_type.router">راوتر</option>
+                  <option value="other" data-i18n="device_type.other">أخرى</option>
+                </select>
+              </label>
+              <label><span data-i18n="devices.protocol">البروتوكول</span>
+                <select id="dev-protocol" required>
+                  <option value="snmp" data-i18n="protocol.snmp">SNMP</option>
+                  <option value="ssh" data-i18n="protocol.ssh">SSH</option>
+                  <option value="netconf" data-i18n="protocol.netconf">NETCONF</option>
+                  <option value="rest" data-i18n="protocol.rest">REST API</option>
+                </select>
+              </label>
+              <label id="lbl-community"><span data-i18n="devices.community">Community (SNMP)</span><input type="text" id="dev-community" value="public"></label>
+              <label id="lbl-username" class="hidden"><span data-i18n="devices.username">Username</span><input type="text" id="dev-username"></label>
+              <label id="lbl-password" class="hidden"><span data-i18n="devices.password">Password</span><input type="password" id="dev-password"></label>
+              <label id="lbl-token" class="hidden"><span data-i18n="devices.token">API Token</span><input type="text" id="dev-token"></label>
+              <label><span data-i18n="devices.port">Port</span><input type="number" id="dev-port" data-i18n-placeholder="devices.port_auto" placeholder="تلقائي"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="devices.save_add">حفظ وإضافة</button>
+              <button type="button" id="cancel-add-device" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+          <p id="add-device-msg" class="error"></p>
+        </div>
+
+        <!-- Network Discovery -->
+        <div id="discover-form" class="sub-form hidden">
+          <h3 data-i18n="devices.discover_title">مسح الشبكة (SNMP)</h3>
+          <form id="network-discover-form">
+            <div class="form-grid">
+              <label><span data-i18n="devices.datacenter">مركز البيانات</span><select id="disc-dc" required></select></label>
+              <label><span data-i18n="devices.cidr">نطاق CIDR</span><input type="text" id="disc-cidr" data-i18n-placeholder="devices.cidr_placeholder" placeholder="172.16.10.0/24"></label>
+              <label><span data-i18n="devices.start_ip">أو: IP البداية</span><input type="text" id="disc-start" data-i18n-placeholder="devices.start_placeholder" placeholder="172.16.10.1"></label>
+              <label><span data-i18n="devices.end_ip">IP النهاية</span><input type="text" id="disc-end" data-i18n-placeholder="devices.end_placeholder" placeholder="172.16.10.50"></label>
+              <label><span data-i18n="devices.snmp_community">SNMP Community</span><input type="text" id="disc-community" value="public" required></label>
+              <label><span data-i18n="devices.port">Port</span><input type="number" id="disc-port" value="161"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="devices.start_scan">بدء المسح</button>
+              <button type="button" id="cancel-discover" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+          <p id="discover-status" class="muted"></p>
+          <div id="discover-results"></div>
+        </div>
+
+        <table id="devices-table">
+          <thead>
+            <tr>
+              <th data-i18n="common.name">الاسم</th><th data-i18n="common.ip">IP</th><th data-i18n="common.vendor">المورّد</th><th data-i18n="common.status">الحالة</th><th data-i18n="common.last_seen">آخر ظهور</th><th data-i18n="common.action">إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Servers -->
+    <section id="servers-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="servers.title">السيرفرات</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-server" class="btn-secondary" data-i18n="servers.add">+ إضافة سيرفر</button>
+            <button id="show-server-guide" class="btn-secondary" data-i18n="servers.guide">📋 دليل الدخول والفحص</button>
+            <button id="poll-all-servers" data-i18n="devices.poll_all">فحص الكل</button>
+            <button id="refresh-servers" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <div id="server-guide" class="guide-box hidden"></div>
+        <div id="add-server-form" class="sub-form hidden">
+          <h3 data-i18n="servers.add_title">إضافة سيرفر</h3>
+          <form id="server-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="devices.datacenter">مركز البيانات</span><select id="srv-dc" required></select></label>
+              <label><span data-i18n="devices.name">الاسم</span><input type="text" id="srv-name" required></label>
+              <label><span data-i18n="devices.hostname">Hostname</span><input type="text" id="srv-hostname" required></label>
+              <label><span data-i18n="common.ip">IP</span><input type="text" id="srv-ip" required></label>
+              <label><span data-i18n="servers.os">نظام التشغيل</span>
+                <select id="srv-os" required>
+                  <option value="linux" data-i18n="os.linux">Linux</option>
+                  <option value="windows" data-i18n="os.windows">Windows</option>
+                  <option value="vmware" data-i18n="os.vmware">VMware</option>
+                  <option value="other" data-i18n="os.other">Other</option>
+                </select>
+              </label>
+              <label><span data-i18n="servers.role">الدور</span>
+                <select id="srv-role">
+                  <option value="application" data-i18n="server_role.application">Application</option>
+                  <option value="database" data-i18n="server_role.database">Database</option>
+                  <option value="web" data-i18n="server_role.web">Web</option>
+                  <option value="hypervisor" data-i18n="server_role.hypervisor">Hypervisor</option>
+                  <option value="other" data-i18n="server_role.other">Other</option>
+                </select>
+              </label>
+              <label><span data-i18n="devices.protocol">البروتوكول</span>
+                <select id="srv-protocol" required>
+                  <option value="ssh" data-i18n="protocol.ssh_linux">SSH (Linux)</option>
+                  <option value="winrm" data-i18n="protocol.winrm">WinRM (Windows)</option>
+                  <option value="snmp" data-i18n="protocol.snmp">SNMP</option>
+                  <option value="rest" data-i18n="protocol.rest_vmware">REST (VMware)</option>
+                  <option value="ipmi" data-i18n="protocol.ipmi">IPMI (BMC/iDRAC)</option>
+                </select>
+              </label>
+              <label id="srv-lbl-user"><span data-i18n="devices.username">Username</span><input type="text" id="srv-username"></label>
+              <label id="srv-lbl-pass"><span data-i18n="devices.password">Password</span><input type="password" id="srv-password"></label>
+              <label id="srv-lbl-community" class="hidden"><span data-i18n="devices.community">Community</span><input type="text" id="srv-community" value="public"></label>
+              <label id="srv-lbl-token" class="hidden"><span data-i18n="devices.token">API Token</span><input type="text" id="srv-token"></label>
+              <label><span data-i18n="devices.port">Port</span><input type="number" id="srv-port" data-i18n-placeholder="devices.port_auto" placeholder="تلقائي"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-add-server" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="servers-table">
+          <thead><tr><th data-i18n="common.name">الاسم</th><th data-i18n="common.ip">IP</th><th data-i18n="common.os">OS</th><th data-i18n="common.role_col">الدور</th><th data-i18n="common.status">الحالة</th><th data-i18n="common.last_seen">آخر ظهور</th><th data-i18n="common.action">إجراء</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Storage -->
+    <section id="storage-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="storage.title">أنظمة التخزين</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-storage" class="btn-secondary" data-i18n="storage.add">+ إضافة Storage</button>
+            <button id="show-storage-guide" class="btn-secondary" data-i18n="storage.guide">📋 دليل الدخول والفحص</button>
+            <button id="poll-all-storage" data-i18n="devices.poll_all">فحص الكل</button>
+            <button id="refresh-storage" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <div id="storage-guide" class="guide-box hidden"></div>
+        <div id="add-storage-form" class="sub-form hidden">
+          <h3 data-i18n="storage.add_title">إضافة نظام تخزين</h3>
+          <form id="storage-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="devices.datacenter">مركز البيانات</span><select id="sto-dc" required></select></label>
+              <label><span data-i18n="devices.name">الاسم</span><input type="text" id="sto-name" required></label>
+              <label><span data-i18n="devices.hostname">Hostname</span><input type="text" id="sto-hostname" required></label>
+              <label><span data-i18n="common.ip">IP</span><input type="text" id="sto-ip" required></label>
+              <label><span data-i18n="devices.vendor">المورّد</span>
+                <select id="sto-vendor" required>
+                  <option value="pure_storage" data-i18n="vendor.pure_storage">Pure Storage</option>
+                  <option value="netapp" data-i18n="vendor.netapp">NetApp</option>
+                  <option value="dell_emc" data-i18n="vendor.dell_emc">Dell EMC</option>
+                  <option value="hpe" data-i18n="vendor.hpe">HPE</option>
+                  <option value="qnap" data-i18n="vendor.qnap">QNAP</option>
+                  <option value="synology" data-i18n="vendor.synology">Synology</option>
+                  <option value="generic" data-i18n="vendor.generic">Generic</option>
+                </select>
+              </label>
+              <label><span data-i18n="storage.model">الطراز</span><input type="text" id="sto-model" data-i18n-placeholder="storage.model_placeholder" placeholder="FlashArray //R40"></label>
+              <label><span data-i18n="storage.type">النوع</span>
+                <select id="sto-type">
+                  <option value="san" data-i18n="storage_type.san">SAN</option>
+                  <option value="nas" data-i18n="storage_type.nas">NAS</option>
+                  <option value="object" data-i18n="storage_type.object">Object</option>
+                  <option value="other" data-i18n="storage_type.other">Other</option>
+                </select>
+              </label>
+              <label><span data-i18n="devices.protocol">البروتوكول</span>
+                <select id="sto-protocol" required>
+                  <option value="rest" data-i18n="protocol.rest_pure">REST API (Pure Storage)</option>
+                  <option value="snmp" data-i18n="protocol.snmp">SNMP</option>
+                  <option value="ssh" data-i18n="protocol.ssh">SSH</option>
+                </select>
+              </label>
+              <label id="sto-lbl-community"><span data-i18n="devices.community">Community</span><input type="text" id="sto-community" value="public"></label>
+              <label id="sto-lbl-user" class="hidden"><span data-i18n="devices.username">Username</span><input type="text" id="sto-username"></label>
+              <label id="sto-lbl-pass" class="hidden"><span data-i18n="devices.password">Password</span><input type="password" id="sto-password"></label>
+              <label id="sto-lbl-token" class="hidden"><span data-i18n="devices.token">API Token</span><input type="text" id="sto-token"></label>
+              <label><span data-i18n="devices.port">Port</span><input type="number" id="sto-port" data-i18n-placeholder="devices.port_auto" placeholder="تلقائي"></label>
+              <label><span data-i18n="storage.capacity">السعة (TB)</span><input type="number" step="0.1" id="sto-capacity"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-add-storage" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="storage-table">
+          <thead><tr><th data-i18n="common.name">الاسم</th><th data-i18n="common.ip">IP</th><th data-i18n="common.vendor">المورّد</th><th data-i18n="common.capacity">السعة</th><th data-i18n="storage.usage">الاستخدام</th><th data-i18n="common.status">الحالة</th><th data-i18n="common.action">إجراء</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Network Map -->
+    <section id="network-map-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="network.title">خريطة الشبكة</h2>
+          <select id="map-selector"></select>
+          <button id="refresh-map" data-i18n="network.refresh">تحديث الخريطة</button>
+        </div>
+        <div id="network-graph"></div>
+        <div id="map-legend">
+          <span class="legend-item"><span class="dot cisco"></span><span data-i18n="vendor.cisco">Cisco</span></span>
+          <span class="legend-item"><span class="dot juniper"></span><span data-i18n="vendor.juniper">Juniper</span></span>
+          <span class="legend-item"><span class="dot fortinet"></span><span data-i18n="vendor.fortinet">Fortinet</span></span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Network Control -->
+    <section id="network-control-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="netctrl.title">إدارة الشبكة والفايرول</h2>
+          <div class="toolbar-actions">
+            <select id="netctrl-dc-filter"><option value="" data-i18n="common.all_dcs">كل المراكز</option></select>
+            <button id="refresh-netctrl" data-i18n="common.refresh">تحديث</button>
+            <button id="download-network-report" class="btn-secondary" data-i18n="netctrl.download_report">📄 تقرير الشبكة</button>
+            <button id="sync-transport-snmp" class="btn-secondary hidden" data-perm="manage_devices" data-i18n="netctrl.sync_transport">🔄 مزامنة SNMP (شبكة النقل)</button>
+          </div>
+        </div>
+        <div id="netctrl-summary" class="stats-grid netctrl-summary"></div>
+        <div class="netctrl-tabs">
+          <button class="netctrl-tab active" data-netctrl-tab="switches" data-i18n="netctrl.tab.switches">السويجات</button>
+          <button class="netctrl-tab" data-netctrl-tab="topology" data-i18n="netctrl.tab.topology">مخطط الربط</button>
+          <button class="netctrl-tab" data-netctrl-tab="ports" data-i18n="netctrl.tab.ports">المنافذ</button>
+          <button class="netctrl-tab" data-netctrl-tab="vlans" data-i18n="netctrl.tab.vlans">VLANs</button>
+          <button class="netctrl-tab" data-netctrl-tab="firewall" data-i18n="netctrl.tab.firewall">Firewall</button>
+          <button class="netctrl-tab" data-netctrl-tab="branches" data-i18n="netctrl.tab.branches">المواقع الفرعية</button>
+          <button class="netctrl-tab" data-netctrl-tab="templates" data-i18n="netctrl.tab.templates">مكتبة الإعدادات</button>
+        </div>
+      </div>
+      <div id="netctrl-tab-switches" class="netctrl-tab-panel card">
+        <p class="muted" data-i18n="netctrl.switches_hint">انقر على سويج لعرض المنافذ، VLANs، السعة، الربط، وقواعد Firewall المرتبطة</p>
+        <div id="netctrl-switches-grid" class="switches-grid"></div>
+      </div>
+      <div id="netctrl-tab-topology" class="netctrl-tab-panel card hidden">
+        <div id="netctrl-topology-graph"></div>
+        <div id="netctrl-topology-legend" class="map-legend">
+          <span class="legend-item"><span class="dot" style="background:#06b6d4"></span><span data-i18n="netctrl.link.fiber">كابل ضوئي</span></span>
+          <span class="legend-item"><span class="dot" style="background:#64748b"></span><span data-i18n="netctrl.link.copper">نحاسي</span></span>
+          <span class="legend-item"><span class="dot" style="background:#a855f7"></span><span data-i18n="netctrl.link.wireless">لاسلكي</span></span>
+          <span class="legend-item"><span class="dot" style="background:#f59e0b"></span><span data-i18n="netctrl.link.backup">احتياطي</span></span>
+        </div>
+      </div>
+      <div id="netctrl-tab-ports" class="netctrl-tab-panel card hidden">
+        <div class="toolbar">
+          <h3 data-i18n="netctrl.ports_title">المنافذ والربط</h3>
+          <select id="netctrl-device-filter"><option value="" data-i18n="netctrl.all_devices">كل الأجهزة</option></select>
+        </div>
+        <table id="netctrl-ports-table">
+          <thead>
+            <tr>
+              <th data-i18n="common.device">الجهاز</th><th data-i18n="netctrl.port">المنفذ</th><th data-i18n="common.status">الحالة</th>
+              <th data-i18n="netctrl.speed">السرعة</th><th data-i18n="netctrl.vlan">VLAN</th><th data-i18n="netctrl.connection">الربط</th>
+              <th data-i18n="netctrl.services">الخدمات</th><th data-i18n="common.desc">الوصف</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-vlans" class="netctrl-tab-panel card hidden">
+        <table id="netctrl-vlans-table">
+          <thead>
+            <tr><th>ID</th><th data-i18n="common.name">الاسم</th><th data-i18n="common.device">الجهاز</th><th data-i18n="netctrl.subnet">الشبكة</th><th>Gateway</th><th data-i18n="common.status">الحالة</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-firewall" class="netctrl-tab-panel card hidden">
+        <table id="netctrl-firewall-table">
+          <thead>
+            <tr><th data-i18n="common.device">الجهاز</th><th data-i18n="common.name">القاعدة</th><th data-i18n="netctrl.action">الإجراء</th><th data-i18n="netctrl.source">المصدر</th><th data-i18n="netctrl.destination">الوجهة</th><th data-i18n="netctrl.service">الخدمة</th><th data-i18n="netctrl.zones">المناطق</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-branches" class="netctrl-tab-panel card hidden">
+        <table id="netctrl-branches-table">
+          <thead>
+            <tr><th data-i18n="common.name">الموقع</th><th data-i18n="netctrl.location">الموقع الجغرافي</th><th data-i18n="netctrl.primary_link">الرابط الأساسي</th><th data-i18n="netctrl.backup_link">الخدمة البديلة</th><th data-i18n="common.status">الحالة</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="netctrl-tab-templates" class="netctrl-tab-panel card hidden">
+        <div class="toolbar">
+          <h3 data-i18n="netctrl.templates_title">مكتبة أكواد Cisco / Juniper / Fortinet</h3>
+          <select id="netctrl-template-vendor">
+            <option value="" data-i18n="netctrl.all_vendors">كل المورّدين</option>
+            <option value="cisco">Cisco</option>
+            <option value="juniper">Juniper</option>
+            <option value="fortinet">Fortinet</option>
+          </select>
+        </div>
+        <div id="netctrl-templates-list" class="templates-grid"></div>
+        <div id="netctrl-template-editor" class="hidden">
+          <h4 id="netctrl-template-name"></h4>
+          <p id="netctrl-template-desc" class="muted"></p>
+          <div id="netctrl-template-vars" class="form-grid"></div>
+          <div class="form-actions">
+            <button id="netctrl-render-template" data-i18n="netctrl.generate_config">توليد الإعداد</button>
+          </div>
+          <pre id="netctrl-template-output" class="config-output"></pre>
+        </div>
+      </div>
+    </section>
+
+    <!-- Sensors (PRTG-style) -->
+    <section id="sensors-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="sensors.title">مراقبة الحساسات</h2>
+          <div class="toolbar-actions">
+            <select id="sensor-dc-filter"><option value="" data-i18n="sensors.all_dcs">كل المراكز</option></select>
+            <select id="sensor-status-filter">
+              <option value="" data-i18n="sensors.all_status">كل الحالات</option>
+              <option value="up" data-i18n="status.up">طبيعي</option>
+              <option value="warning" data-i18n="status.warning">تحذير</option>
+              <option value="down" data-i18n="status.down">تعطل</option>
+              <option value="paused" data-i18n="status.paused">موقوف</option>
+              <option value="unknown" data-i18n="status.unknown">غير معروف</option>
+            </select>
+            <button id="refresh-sensors" data-i18n="common.refresh">تحديث</button>
+            <button id="seed-sensors" class="btn-secondary hidden" data-i18n="sensors.seed">إنشاء حساسات افتراضية</button>
+          </div>
+        </div>
+        <div id="sensor-summary-bar" class="sensor-summary-bar"></div>
+        <div class="sensor-legend">
+          <span><span class="sensor-dot up"></span><span data-i18n="status.up">طبيعي</span></span>
+          <span><span class="sensor-dot warning"></span><span data-i18n="status.warning">تحذير</span></span>
+          <span><span class="sensor-dot down"></span><span data-i18n="status.down">تعطل</span></span>
+          <span><span class="sensor-dot paused"></span><span data-i18n="status.paused">موقوف</span></span>
+          <span><span class="sensor-dot unknown"></span><span data-i18n="status.unknown">غير معروف</span></span>
+        </div>
+        <table id="sensors-table">
+          <thead>
+            <tr>
+              <th></th><th data-i18n="sensors.sensor">الحساس</th><th data-i18n="sensors.asset">الأصل</th><th data-i18n="common.type">النوع</th><th data-i18n="sensors.value">القيمة</th>
+              <th data-i18n="sensors.warning_limit">تحذير</th><th data-i18n="sensors.error_limit">خطأ</th><th data-i18n="common.status">الحالة</th><th data-i18n="sensors.last_check">آخر فحص</th><th data-i18n="common.action">إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div id="sensor-detail" class="card hidden">
+        <div class="toolbar">
+          <h3 id="sensor-detail-title" data-i18n="sensors.detail_title">تفاصيل الحساس</h3>
+          <button id="close-sensor-detail" class="btn-secondary" data-i18n="sensors.close">إغلاق</button>
+        </div>
+        <form id="sensor-edit-form" class="form-grid">
+          <input type="hidden" id="sensor-edit-id">
+          <label><span data-i18n="common.name">الاسم</span><input type="text" id="sensor-edit-name"></label>
+          <label><span data-i18n="sensors.warning_threshold">حد التحذير</span><input type="number" step="0.1" id="sensor-edit-warning"></label>
+          <label><span data-i18n="sensors.error_threshold">حد الخطأ</span><input type="number" step="0.1" id="sensor-edit-error"></label>
+          <label><span data-i18n="sensors.direction">الاتجاه</span>
+            <select id="sensor-edit-direction">
+              <option value="true" data-i18n="sensors.direction_higher">أعلى = أسوأ</option>
+              <option value="false" data-i18n="sensors.direction_lower">أقل = أسوأ</option>
+            </select>
+          </label>
+          <label><span data-i18n="sensors.enabled">مفعّل</span>
+            <select id="sensor-edit-enabled">
+              <option value="true" data-i18n="common.yes">نعم</option>
+              <option value="false" data-i18n="common.no">لا</option>
+            </select>
+          </label>
+        </form>
+        <div class="form-actions">
+          <button id="save-sensor-btn" data-i18n="sensors.save_limits">حفظ الحدود</button>
+        </div>
+        <h4 data-i18n="sensors.history">السجل (آخر القيم)</h4>
+        <div id="sensor-history-chart" class="sensor-history"></div>
+      </div>
+    </section>
+
+    <!-- Alerts -->
+    <section id="alerts-panel" class="panel hidden">
+      <div class="card">
+        <h2 data-i18n="alerts.title">التنبيهات</h2>
+        <table id="alerts-table">
+          <thead>
+            <tr><th data-i18n="common.title">العنوان</th><th data-i18n="common.severity">الخطورة</th><th data-i18n="common.status">الحالة</th><th data-i18n="common.source">المصدر</th><th data-i18n="common.date">التاريخ</th><th data-i18n="common.action">إجراء</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Reports -->
+    <section id="reports-panel" class="panel hidden">
+      <div class="card">
+        <h2 data-i18n="reports.title">التقارير</h2>
+        <p data-i18n="reports.export_hint">تصدير تقرير PDF/HTML لمركز بيانات:</p>
+        <select id="report-dc-selector"></select>
+        <button id="download-report" data-i18n="reports.download">تحميل التقرير</button>
+      </div>
+    </section>
+
+    <!-- Excel Import -->
+    <section id="import-excel-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="excel.title">استيراد من Excel</h2>
+          <div class="toolbar-actions">
+            <button id="download-excel-template" class="btn-secondary" data-i18n="excel.download_template">📥 تحميل القالب</button>
+          </div>
+        </div>
+        <p class="muted import-hint" data-i18n="excel.hint">
+          ارفع ملف Excel (.xlsx) يحتوي على أجهزة الشبكة والسيرفرات والتخزين وعناوين IP.
+          سيتم تحليل الملف وعرض معاينة قبل الاستيراد، ثم إنشاء الأصول ومراكز البيانات ومخططات الشبكة تلقائياً.
+        </p>
+        <div class="import-dropzone" id="excel-dropzone">
+          <input type="file" id="excel-file-input" accept=".xlsx,.xls" hidden>
+          <p data-i18n="excel.drop_hint">اسحب ملف Excel هنا أو</p>
+          <button type="button" id="excel-browse-btn" class="btn-secondary" data-i18n="excel.browse">اختيار ملف</button>
+          <p id="excel-file-name" class="muted"></p>
+        </div>
+        <div class="form-actions import-actions">
+          <label class="import-skip">
+            <input type="checkbox" id="excel-skip-existing" checked>
+            <span data-i18n="excel.skip_existing">تخطي الأصول الموجودة (نفس IP)</span>
+          </label>
+          <button id="excel-preview-btn" disabled data-i18n="excel.preview">معاينة</button>
+          <button id="excel-apply-btn" class="btn-primary" disabled data-i18n="excel.apply">تأكيد الاستيراد</button>
+        </div>
+        <p id="excel-status" class="muted"></p>
+        <div id="excel-preview" class="hidden">
+          <div id="excel-summary" class="stats-grid import-summary"></div>
+          <div id="excel-errors" class="error-box hidden"></div>
+          <h3 data-i18n="excel.dc_section">مراكز البيانات</h3>
+          <div id="excel-dc-list"></div>
+          <h3 data-i18n="excel.assets_section">الأصول</h3>
+          <table id="excel-assets-table">
+            <thead>
+              <tr>
+                <th data-i18n="common.row">صف</th><th data-i18n="common.datacenter">مركز البيانات</th><th data-i18n="common.type">النوع</th><th data-i18n="common.name">الاسم</th><th data-i18n="common.ip">IP</th><th data-i18n="common.vendor">المورّد</th><th data-i18n="common.protocol">البروتوكول</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+          <h3 data-i18n="excel.links_section">روابط المخطط</h3>
+          <table id="excel-links-table">
+            <thead>
+              <tr><th data-i18n="common.row">صف</th><th data-i18n="common.datacenter">مركز البيانات</th><th data-i18n="common.from">من</th><th data-i18n="common.to">إلى</th><th data-i18n="common.desc">الوصف</th></tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- IPAM -->
+    <section id="ipam-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="ipam.title">إدارة عناوين IP (IPAM)</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-prefix" class="btn-secondary hidden" data-i18n="ipam.add_prefix">+ إضافة بادئة</button>
+            <button id="ipam-sync-conflicts" data-i18n="ipam.show_conflicts">⚠️ تعارضات IP</button>
+            <button id="refresh-ipam" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <div id="ipam-conflicts" class="error-box hidden"></div>
+        <div id="add-prefix-form" class="sub-form hidden">
+          <h3 data-i18n="ipam.add_prefix_title">إضافة بادئة شبكة</h3>
+          <form id="prefix-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="ipam.datacenter">مركز البيانات</span><select id="prefix-dc" required></select></label>
+              <label><span data-i18n="ipam.cidr">CIDR</span><input type="text" id="prefix-cidr" required placeholder="172.16.10.0/24"></label>
+              <label><span data-i18n="ipam.vlan">VLAN</span><input type="number" id="prefix-vlan"></label>
+              <label><span data-i18n="ipam.gateway">البوابة</span><input type="text" id="prefix-gateway" placeholder="172.16.10.1"></label>
+              <label><span data-i18n="ipam.description">الوصف</span><input type="text" id="prefix-desc"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-add-prefix" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <div id="ipam-prefix-list"></div>
+        <div id="ipam-address-panel" class="sub-form hidden">
+          <div class="toolbar">
+            <h3 id="ipam-address-title"></h3>
+            <button id="ipam-sync-prefix" class="btn-secondary" data-i18n="ipam.sync_assets">↻ مزامنة الأصول</button>
+          </div>
+          <div id="ipam-utilization" class="stats-grid import-summary"></div>
+          <table id="ipam-address-table">
+            <thead>
+              <tr>
+                <th data-i18n="common.ip">IP</th><th data-i18n="ipam.status">الحالة</th><th data-i18n="ipam.hostname">Hostname</th><th data-i18n="ipam.asset">الأصل</th><th data-i18n="common.action">إجراء</th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- Config Backups -->
+    <section id="backups-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="backups.title">نسخ احتياطي للإعدادات</h2>
+          <div class="toolbar-actions">
+            <button id="run-all-backups" class="hidden" data-i18n="backups.run_all">▶ نسخ الكل (Cisco/Juniper)</button>
+            <button id="refresh-backups" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <p class="muted" data-i18n="backups.hint">نسخ إعدادات Cisco وJuniper عبر SSH — show running-config / show configuration</p>
+        <h3 data-i18n="backups.eligible">أجهزة مؤهلة</h3>
+        <table id="eligible-devices-table">
+          <thead>
+            <tr><th data-i18n="common.name">الاسم</th><th data-i18n="common.vendor">المورّد</th><th data-i18n="common.ip">IP</th><th data-i18n="backups.ssh">SSH</th><th data-i18n="common.action">إجراء</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <h3 data-i18n="backups.history">سجل النسخ</h3>
+        <table id="backups-table">
+          <thead>
+            <tr><th>#</th><th data-i18n="backups.device">الجهاز</th><th data-i18n="backups.hash">Hash</th><th data-i18n="backups.size">الحجم</th><th data-i18n="backups.date">التاريخ</th><th data-i18n="common.action">إجراء</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <pre id="backup-content-view" class="config-view hidden"></pre>
+      </div>
+    </section>
+
+    <!-- Integrations -->
+    <section id="integrations-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="integrations.title">التكاملات الخارجية</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-integration" data-i18n="integrations.add">+ إضافة تكامل</button>
+            <button id="sync-all-integrations" class="btn-secondary" data-i18n="integrations.sync_all">↻ مزامنة الكل</button>
+            <button id="refresh-integrations" class="btn-secondary" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+        <p class="muted" data-i18n="integrations.hint">أضف رابط PRTG أو VMware (Base URL + Token) لربط النظام الخارجي واستعراض بياناته داخل DCMS</p>
+        <div id="integrations-empty-cta" class="integration-empty-cta hidden">
+          <p data-i18n="integrations.empty_cta">لا توجد تكاملات — اضغط «إضافة تكامل» وأدخل رابط PRTG</p>
+          <button id="integrations-empty-add" data-i18n="integrations.add">+ إضافة تكامل</button>
+        </div>
+        <div id="add-integration-form" class="sub-form hidden">
+          <h3 data-i18n="integrations.add_title">إضافة تكامل</h3>
+          <form id="integration-create-form">
+            <div class="form-grid">
+              <label><span data-i18n="integrations.name">الاسم</span><input type="text" id="int-name" required></label>
+              <label><span data-i18n="integrations.type">النوع</span>
+                <select id="int-type" required>
+                  <option value="prtg">PRTG</option>
+                  <option value="vmware">VMware</option>
+                </select>
+              </label>
+              <label><span data-i18n="integrations.url">رابط النظام (Base URL)</span><input type="url" id="int-url" required data-i18n-placeholder="integrations.url_placeholder" placeholder="https://192.168.1.10"></label>
+              <label id="int-token-label"><span data-i18n="integrations.token">API Token / Password</span><input type="password" id="int-token" data-i18n-placeholder="integrations.token_placeholder" placeholder="PRTG API Token"></label>
+              <label><span data-i18n="ipam.datacenter">مركز البيانات</span><select id="int-dc"><option value="">—</option></select></label>
+              <label id="int-user-label"><span data-i18n="integrations.username">Username</span><input type="text" id="int-username"></label>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-add-integration" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+        <table id="integrations-table">
+          <thead>
+            <tr>
+              <th data-i18n="common.name">الاسم</th><th data-i18n="integrations.type">النوع</th><th data-i18n="integrations.url">URL</th><th data-i18n="integrations.last_sync">آخر مزامنة</th><th data-i18n="integrations.status">الحالة</th><th data-i18n="common.action">إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="integration-detail" class="integration-detail hidden"></div>
+      </div>
+    </section>
+
+    <!-- Users Management -->
+    <section id="users-panel" class="panel hidden">
+      <div class="card">
+        <div class="toolbar">
+          <h2 data-i18n="users.title">إدارة المستخدمين</h2>
+          <div class="toolbar-actions">
+            <button id="show-add-user" class="btn-secondary" data-i18n="users.add">+ إضافة مستخدم</button>
+            <button id="refresh-users" data-i18n="common.refresh">تحديث</button>
+          </div>
+        </div>
+
+        <div id="add-user-form" class="sub-form hidden">
+          <h3 id="user-form-title" data-i18n="users.add_title">إضافة مستخدم</h3>
+          <form id="user-form">
+            <input type="hidden" id="user-edit-id">
+            <div class="form-grid">
+              <label><span data-i18n="users.username">اسم المستخدم</span><input type="text" id="usr-username" required></label>
+              <label><span data-i18n="users.email">البريد</span><input type="email" id="usr-email" required></label>
+              <label><span data-i18n="users.fullname">الاسم الكامل</span><input type="text" id="usr-fullname"></label>
+              <label><span data-i18n="users.password">كلمة المرور</span><input type="password" id="usr-password" minlength="8"></label>
+              <label><span data-i18n="users.role_template">قالب الصلاحيات</span>
+                <select id="usr-role-template">
+                  <option value="viewer" data-i18n="role.viewer">قراءة فقط</option>
+                  <option value="editor" data-i18n="role.editor">قراءة وتعديل</option>
+                  <option value="operator" data-i18n="role.operator">مشغّل</option>
+                  <option value="admin" data-i18n="role.admin">مدير النظام</option>
+                  <option value="custom" data-i18n="role.custom">مخصص</option>
+                </select>
+              </label>
+              <label><span data-i18n="users.status">الحالة</span>
+                <select id="usr-active">
+                  <option value="true" data-i18n="users.active">نشط</option>
+                  <option value="false" data-i18n="users.inactive">معطّل</option>
+                </select>
+              </label>
+            </div>
+            <div class="perm-section">
+              <h4 data-i18n="users.perms_detail">الصلاحيات التفصيلية</h4>
+              <div id="perm-checkboxes" class="perm-grid"></div>
+            </div>
+            <div class="form-actions">
+              <button type="submit" data-i18n="common.save">حفظ</button>
+              <button type="button" id="cancel-user-form" class="btn-secondary" data-i18n="common.cancel">إلغاء</button>
+            </div>
+          </form>
+        </div>
+
+        <table id="users-table">
+          <thead>
+            <tr>
+              <th data-i18n="users.user">المستخدم</th><th data-i18n="users.email">البريد</th><th data-i18n="users.role">الدور</th><th data-i18n="users.permissions">الصلاحيات</th><th data-i18n="users.status">الحالة</th><th data-i18n="common.action">إجراء</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <!-- Switch Detail Modal -->
+  <div id="switch-detail-modal" class="switch-modal hidden" role="dialog" aria-modal="true">
+    <div class="switch-modal-backdrop" id="switch-modal-backdrop"></div>
+    <div class="switch-modal-panel">
+      <div class="switch-modal-header">
+        <div>
+          <h2 id="switch-detail-title">—</h2>
+          <p id="switch-detail-subtitle" class="muted"></p>
+        </div>
+        <div class="switch-modal-actions">
+          <button id="sync-switch-snmp" class="btn-secondary hidden" type="button" data-i18n="netctrl.sync_snmp">🔄 مزامنة SNMP</button>
+          <button id="close-switch-detail" class="btn-secondary btn-icon" type="button" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div id="switch-detail-insights" class="switch-insights"></div>
+      <div id="switch-capacity-bars" class="capacity-section"></div>
+      <div class="switch-detail-tabs">
+        <button class="switch-dtab active" data-switch-tab="ports" data-i18n="netctrl.swtab.ports">المنافذ</button>
+        <button class="switch-dtab" data-switch-tab="grid" data-i18n="netctrl.swtab.grid">لوحة المنافذ</button>
+        <button class="switch-dtab" data-switch-tab="vlans" data-i18n="netctrl.tab.vlans">VLANs</button>
+        <button class="switch-dtab" data-switch-tab="peers" data-i18n="netctrl.swtab.peers">الأجهزة المرتبطة</button>
+        <button class="switch-dtab" data-switch-tab="firewall" data-i18n="netctrl.tab.firewall">Firewall</button>
+        <button class="switch-dtab" data-switch-tab="topology" data-i18n="netctrl.swtab.local_topo">الربط المحلي</button>
+      </div>
+      <div id="switch-tab-ports" class="switch-tab-panel"></div>
+      <div id="switch-tab-grid" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-vlans" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-peers" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-firewall" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-topology" class="switch-tab-panel hidden">
+        <div id="switch-local-topology"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Theme Studio Panel -->
+  <div id="theme-overlay" class="theme-overlay"></div>
+  <aside id="appearance-panel" class="appearance-panel" aria-label="Theme settings">
+    <div class="appearance-head">
+      <h2 data-i18n="theme.title">استوديو المظهر</h2>
+      <button id="close-appearance" class="btn-secondary btn-icon" type="button" aria-label="Close">✕</button>
+    </div>
+    <p class="muted appearance-sub" data-i18n="theme.subtitle">تحكم كامل بالألوان، الأزرار، الخطوط، والوضع النهاري/الليلي</p>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.mode">الوضع</h3>
+      <div class="mode-toggle-wrap">
+        <span data-i18n="theme.dark">🌙 ليلي</span>
+        <button id="theme-mode-toggle" class="mode-toggle" type="button" aria-pressed="false">
+          <span class="mode-knob"></span>
+        </button>
+        <span data-i18n="theme.light">☀️ نهاري</span>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.presets">قوالب جاهزة</h3>
+      <div class="preset-grid">
+        <button type="button" class="preset-card" data-preset="midnight"><span class="preset-swatch" style="background:linear-gradient(135deg,#0b1220,#3b82f6)"></span><span class="preset-name">Midnight</span></button>
+        <button type="button" class="preset-card" data-preset="ocean"><span class="preset-swatch" style="background:linear-gradient(135deg,#071018,#06b6d4)"></span><span class="preset-name">Ocean</span></button>
+        <button type="button" class="preset-card" data-preset="moroor"><span class="preset-swatch" style="background:linear-gradient(135deg,#0f172a,#2563eb)"></span><span class="preset-name">Moroor</span></button>
+        <button type="button" class="preset-card" data-preset="lightpro"><span class="preset-swatch" style="background:linear-gradient(135deg,#f1f5f9,#2563eb)"></span><span class="preset-name">Light Pro</span></button>
+        <button type="button" class="preset-card" data-preset="sunrise"><span class="preset-swatch" style="background:linear-gradient(135deg,#fef3c7,#ea580c)"></span><span class="preset-name">Sunrise</span></button>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.colors">الألوان</h3>
+      <div class="color-grid">
+        <label><span data-i18n="theme.color.primary">أساسي</span><input type="color" id="theme-color-primary" value="#3b82f6"></label>
+        <label><span data-i18n="theme.color.accent">تمييز</span><input type="color" id="theme-color-accent" value="#22c55e"></label>
+        <label><span data-i18n="theme.color.surface">سطح</span><input type="color" id="theme-color-surface" value="#1a2332"></label>
+        <label><span data-i18n="theme.color.background">خلفية</span><input type="color" id="theme-color-background" value="#0b1220"></label>
+        <label><span data-i18n="theme.color.text">نص</span><input type="color" id="theme-color-text" value="#f1f5f9"></label>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.buttons">الأزرار</h3>
+      <label><span data-i18n="theme.btn.style">النمط</span>
+        <select id="theme-btn-style">
+          <option value="3d" data-i18n="theme.btn.3d">ثلاثي الأبعاد</option>
+          <option value="flat" data-i18n="theme.btn.flat">مسطح</option>
+          <option value="glass" data-i18n="theme.btn.glass">زجاجي</option>
+          <option value="neon" data-i18n="theme.btn.neon">نيون</option>
+        </select>
+      </label>
+      <label><span data-i18n="theme.btn.shape">الشكل</span>
+        <select id="theme-btn-shape">
+          <option value="rounded" data-i18n="theme.btn.rounded">مستدير</option>
+          <option value="pill" data-i18n="theme.btn.pill">حبة</option>
+          <option value="soft" data-i18n="theme.btn.soft">ناعم</option>
+          <option value="square" data-i18n="theme.btn.square">مربع</option>
+        </select>
+      </label>
+      <label><span data-i18n="theme.btn.size">الحجم</span>
+        <select id="theme-btn-size">
+          <option value="sm" data-i18n="theme.size.sm">صغير</option>
+          <option value="md" data-i18n="theme.size.md">متوسط</option>
+          <option value="lg" data-i18n="theme.size.lg">كبير</option>
+        </select>
+      </label>
+      <div class="btn-preview-row">
+        <button type="button" data-i18n="theme.preview.primary">زر أساسي</button>
+        <button type="button" class="btn-secondary" data-i18n="theme.preview.secondary">زر ثانوي</button>
+      </div>
+    </section>
+
+    <section class="appearance-section">
+      <h3 data-i18n="theme.typography">الخطوط</h3>
+      <label><span data-i18n="theme.font.family">نوع الخط</span>
+        <select id="theme-font">
+          <option value="Tajawal">Tajawal</option>
+          <option value="Cairo">Cairo</option>
+          <option value="IBM Plex Sans Arabic">IBM Plex Sans Arabic</option>
+          <option value="Almarai">Almarai</option>
+          <option value="Inter">Inter</option>
+        </select>
+      </label>
+      <label><span data-i18n="theme.font.scale">حجم الخط</span> <output id="theme-font-scale-val">100%</output>
+        <input type="range" id="theme-font-scale" min="85" max="130" value="100" step="1">
+      </label>
+      <label><span data-i18n="theme.radius">استدارة الزوايا</span> <output id="theme-radius-val">12px</output>
+        <input type="range" id="theme-radius" min="4" max="24" value="12" step="1">
+      </label>
+      <label class="checkbox-row"><input type="checkbox" id="theme-animations" checked> <span data-i18n="theme.animations">حركات تفاعلية</span></label>
+    </section>
+
+    <div class="appearance-foot">
+      <button id="theme-reset" type="button" class="btn-secondary" data-i18n="theme.reset">إعادة الافتراضي</button>
+    </div>
+  </aside>
+
+  <button id="theme-fab" class="theme-fab" type="button" aria-label="Theme Studio" title="Theme">🎨</button>
+
+  <script src="/static/i18n.js?v=11"></script>
+  <script>I18n.init(); ThemeStudio.bindAppearancePanel(); ThemeStudio.syncPanelControls();</script>
+  <script src="/static/app.js?v=11"></script>
+</body>
+</html>
