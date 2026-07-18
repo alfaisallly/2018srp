@@ -178,6 +178,7 @@
                   <option value="cisco" data-i18n="vendor.cisco">Cisco</option>
                   <option value="juniper" data-i18n="vendor.juniper">Juniper</option>
                   <option value="fortinet" data-i18n="vendor.fortinet">Fortinet</option>
+                  <option value="palo_alto" data-i18n="vendor.palo_alto">Palo Alto</option>
                 </select>
               </label>
               <label><span data-i18n="devices.type">نوع الجهاز</span>
@@ -389,6 +390,7 @@
           <span class="legend-item"><span class="dot cisco"></span><span data-i18n="vendor.cisco">Cisco</span></span>
           <span class="legend-item"><span class="dot juniper"></span><span data-i18n="vendor.juniper">Juniper</span></span>
           <span class="legend-item"><span class="dot fortinet"></span><span data-i18n="vendor.fortinet">Fortinet</span></span>
+          <span class="legend-item"><span class="dot palo_alto"></span><span data-i18n="vendor.palo_alto">Palo Alto</span></span>
         </div>
       </div>
     </section>
@@ -413,6 +415,7 @@
           <button class="netctrl-tab" data-netctrl-tab="vlans" data-i18n="netctrl.tab.vlans">VLANs</button>
           <button class="netctrl-tab" data-netctrl-tab="firewall" data-i18n="netctrl.tab.firewall">Firewall</button>
           <button class="netctrl-tab" data-netctrl-tab="branches" data-i18n="netctrl.tab.branches">المواقع الفرعية</button>
+          <button class="netctrl-tab" data-netctrl-tab="console" data-i18n="netctrl.tab.console">كونسول الأجهزة</button>
           <button class="netctrl-tab" data-netctrl-tab="templates" data-i18n="netctrl.tab.templates">مكتبة الإعدادات</button>
         </div>
       </div>
@@ -469,13 +472,38 @@
           <tbody></tbody>
         </table>
       </div>
+      <div id="netctrl-tab-console" class="netctrl-tab-panel card hidden">
+        <div class="toolbar">
+          <h3 data-i18n="console.quick_connect">اتصال مباشر بالجهاز</h3>
+        </div>
+        <p class="muted" data-i18n="console.quick_connect_hint">أدخل عنوان IP وبيانات SSH للدخول إلى كونسول الجهاز وتنفيذ الأوامر</p>
+        <form id="netctrl-console-form" class="form-grid console-connect-grid">
+          <label><span data-i18n="common.ip">IP</span><input type="text" id="netctrl-console-host" required placeholder="172.16.10.1"></label>
+          <label><span data-i18n="devices.vendor">المورّد</span>
+            <select id="netctrl-console-vendor" required>
+              <option value="cisco">Cisco</option>
+              <option value="juniper">Juniper</option>
+              <option value="palo_alto">Palo Alto</option>
+            </select>
+          </label>
+          <label><span data-i18n="login.username">اسم المستخدم</span><input type="text" id="netctrl-console-user" required></label>
+          <label><span data-i18n="login.password">كلمة المرور</span><input type="password" id="netctrl-console-pass" required></label>
+          <label><span data-i18n="console.port">المنفذ</span><input type="number" id="netctrl-console-port" value="22" min="1" max="65535"></label>
+        </form>
+        <div class="form-actions">
+          <button type="button" id="netctrl-console-test" data-i18n="console.test_connection">اختبار الاتصال</button>
+          <button type="button" id="netctrl-console-open" data-i18n="console.open_console">فتح الكونسول</button>
+        </div>
+        <div id="netctrl-console-devices" class="console-device-list"></div>
+      </div>
       <div id="netctrl-tab-templates" class="netctrl-tab-panel card hidden">
         <div class="toolbar">
-          <h3 data-i18n="netctrl.templates_title">مكتبة أكواد Cisco / Juniper / Fortinet</h3>
+          <h3 data-i18n="netctrl.templates_title">مكتبة أكواد Cisco / Juniper / Palo Alto</h3>
           <select id="netctrl-template-vendor">
             <option value="" data-i18n="netctrl.all_vendors">كل المورّدين</option>
             <option value="cisco">Cisco</option>
             <option value="juniper">Juniper</option>
+            <option value="palo_alto">Palo Alto</option>
             <option value="fortinet">Fortinet</option>
           </select>
         </div>
@@ -484,8 +512,12 @@
           <h4 id="netctrl-template-name"></h4>
           <p id="netctrl-template-desc" class="muted"></p>
           <div id="netctrl-template-vars" class="form-grid"></div>
+          <label><span data-i18n="console.target_device">الجهاز المستهدف</span>
+            <select id="netctrl-template-device"><option value="">—</option></select>
+          </label>
           <div class="form-actions">
             <button id="netctrl-render-template" data-i18n="netctrl.generate_config">توليد الإعداد</button>
+            <button type="button" id="netctrl-apply-template" class="btn-secondary hidden" data-i18n="console.apply_config">تطبيق على الجهاز</button>
           </div>
           <pre id="netctrl-template-output" class="config-output"></pre>
         </div>
@@ -831,6 +863,7 @@
           <p id="switch-detail-subtitle" class="muted"></p>
         </div>
         <div class="switch-modal-actions">
+          <button id="switch-open-console" class="btn-secondary hidden" type="button" data-i18n="console.open_live">كونسول مباشر</button>
           <button id="sync-switch-snmp" class="btn-secondary hidden" type="button" data-i18n="netctrl.sync_snmp">🔄 مزامنة SNMP</button>
           <button id="close-switch-detail" class="btn-secondary btn-icon" type="button" aria-label="Close">✕</button>
         </div>
@@ -843,6 +876,7 @@
         <button class="switch-dtab" data-switch-tab="vlans" data-i18n="netctrl.tab.vlans">VLANs</button>
         <button class="switch-dtab" data-switch-tab="peers" data-i18n="netctrl.swtab.peers">الأجهزة المرتبطة</button>
         <button class="switch-dtab" data-switch-tab="firewall" data-i18n="netctrl.tab.firewall">Firewall</button>
+        <button class="switch-dtab" data-switch-tab="console" data-i18n="netctrl.swtab.console">كونسول</button>
         <button class="switch-dtab" data-switch-tab="topology" data-i18n="netctrl.swtab.local_topo">الربط المحلي</button>
       </div>
       <div id="switch-tab-ports" class="switch-tab-panel"></div>
@@ -850,8 +884,59 @@
       <div id="switch-tab-vlans" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-peers" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-firewall" class="switch-tab-panel hidden"></div>
+      <div id="switch-tab-console" class="switch-tab-panel hidden"></div>
       <div id="switch-tab-topology" class="switch-tab-panel hidden">
         <div id="switch-local-topology"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live Device Console Modal -->
+  <div id="device-console-modal" class="device-console-modal hidden" role="dialog" aria-modal="true">
+    <div class="device-console-backdrop" id="device-console-backdrop"></div>
+    <div class="device-console-panel">
+      <div class="device-console-header">
+        <div>
+          <h2 id="device-console-title">—</h2>
+          <p id="device-console-subtitle" class="muted"></p>
+        </div>
+        <div class="device-console-actions">
+          <button type="button" id="device-console-clear" class="btn-secondary" data-i18n="console.clear">مسح</button>
+          <button type="button" id="device-console-close" class="btn-secondary btn-icon" aria-label="Close">✕</button>
+        </div>
+      </div>
+      <div id="device-console-connect-form" class="console-connect-form hidden">
+        <div class="form-grid console-connect-grid">
+          <label><span data-i18n="common.ip">IP</span><input type="text" id="device-console-host"></label>
+          <label><span data-i18n="devices.vendor">المورّد</span>
+            <select id="device-console-vendor">
+              <option value="cisco">Cisco</option>
+              <option value="juniper">Juniper</option>
+              <option value="palo_alto">Palo Alto</option>
+            </select>
+          </label>
+          <label><span data-i18n="login.username">اسم المستخدم</span><input type="text" id="device-console-user"></label>
+          <label><span data-i18n="login.password">كلمة المرور</span><input type="password" id="device-console-pass"></label>
+          <label><span data-i18n="console.port">المنفذ</span><input type="number" id="device-console-port" value="22"></label>
+        </div>
+        <button type="button" id="device-console-connect" data-i18n="console.test_connection">اختبار الاتصال</button>
+      </div>
+      <div class="device-console-body">
+        <aside class="device-console-sidebar">
+          <h4 data-i18n="console.command_library">مكتبة الأوامر</h4>
+          <div id="device-console-library" class="console-library-list"></div>
+        </aside>
+        <div class="device-console-main">
+          <div id="device-console-output" class="device-console-output"></div>
+          <div class="device-console-input-row">
+            <input type="text" id="device-console-input" placeholder="show version" autocomplete="off" spellcheck="false">
+            <select id="device-console-mode" title="mode">
+              <option value="exec" data-i18n="console.mode_exec">تنفيذ</option>
+              <option value="config" data-i18n="console.mode_config">تطبيق إعداد</option>
+            </select>
+            <button type="button" id="device-console-run" data-i18n="console.run">تنفيذ</button>
+          </div>
+        </div>
       </div>
     </div>
   </div>

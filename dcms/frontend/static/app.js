@@ -921,6 +921,8 @@ async function loadNetworkControl() {
   renderNetctrlBranches(branches);
   renderNetctrlTemplates(templates);
   renderNetctrlSwitches(devices);
+  renderNetctrlConsoleDevices(devices);
+  populateNetctrlTemplateDevices(devices);
 
   if (dcId) {
     const topo = await api(`/network/topology/${dcId}`);
@@ -1060,6 +1062,222 @@ let switchLocalNetwork = null;
 let currentSwitchDetail = null;
 let selectedSwitchPort = null;
 
+let deviceConsoleState = {
+  deviceId: null,
+  host: null,
+  vendor: null,
+  username: null,
+  password: null,
+  port: 22,
+  connected: false,
+  commandLibrary: [],
+};
+
+function consoleLabel(entry) {
+  const lang = window.I18n?.getLanguage?.() || 'ar';
+  return (lang === 'ar' ? entry.label_ar : entry.label_en) || entry.label_en || entry.name;
+}
+
+function appendConsoleOutput(text, kind = 'output') {
+  const out = document.getElementById('device-console-output');
+  if (!out) return;
+  const line = document.createElement('div');
+  line.className = `console-line console-${kind}`;
+  line.textContent = text;
+  out.appendChild(line);
+  out.scrollTop = out.scrollHeight;
+}
+
+function clearConsoleOutput() {
+  const out = document.getElementById('device-console-output');
+  if (out) out.innerHTML = '';
+}
+
+async function loadCommandLibrary(vendor) {
+  const q = vendor ? `?vendor=${encodeURIComponent(vendor)}` : '';
+  deviceConsoleState.commandLibrary = await api(`/network/command-library${q}`);
+  renderDeviceConsoleLibrary();
+}
+
+function renderDeviceConsoleLibrary() {
+  const list = document.getElementById('device-console-library');
+  if (!list) return;
+  list.innerHTML = (deviceConsoleState.commandLibrary || []).map(c => `
+    <button type="button" class="console-cmd-btn" onclick="runLibraryCommand('${c.id}')">${consoleLabel(c)}</button>
+  `).join('') || `<p class="muted">${t('console.command_library')}</p>`;
+}
+
+function getConsoleConnectPayload(fromModal = true) {
+  const prefix = fromModal ? 'device-console' : 'netctrl-console';
+  return {
+    host: document.getElementById(`${prefix}-host`)?.value?.trim(),
+    vendor: document.getElementById(`${prefix}-vendor`)?.value,
+    username: document.getElementById(`${prefix}-user`)?.value,
+    password: document.getElementById(`${prefix}-pass`)?.value,
+    port: Number(document.getElementById(`${prefix}-port`)?.value || 22),
+  };
+}
+
+async function openDeviceConsole(opts = {}) {
+  deviceConsoleState = {
+    deviceId: opts.deviceId || null,
+    host: opts.host || null,
+    vendor: opts.vendor || null,
+    username: opts.username || null,
+    password: opts.password || null,
+    port: opts.port || 22,
+    connected: !!opts.deviceId,
+    commandLibrary: [],
+  };
+
+  const modal = document.getElementById('device-console-modal');
+  modal?.classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  clearConsoleOutput();
+
+  const connectForm = document.getElementById('device-console-connect-form');
+  const titleEl = document.getElementById('device-console-title');
+  const subtitleEl = document.getElementById('device-console-subtitle');
+
+  if (opts.deviceId) {
+    const dev = opts.device || currentSwitchDetail?.device;
+    if (dev) {
+      titleEl.textContent = dev.name;
+      subtitleEl.textContent = `${vendorLabel(dev.vendor)} · ${dev.ip_address}`;
+      deviceConsoleState.vendor = dev.vendor;
+      deviceConsoleState.host = dev.ip_address;
+      connectForm?.classList.add('hidden');
+      appendConsoleOutput(t('console.ready'), 'system');
+      await loadCommandLibrary(dev.vendor);
+      return;
+    }
+  }
+
+  connectForm?.classList.remove('hidden');
+  titleEl.textContent = t('console.open_console');
+  subtitleEl.textContent = t('console.quick_connect_hint');
+  if (opts.host) document.getElementById('device-console-host').value = opts.host;
+  if (opts.vendor) document.getElementById('device-console-vendor').value = opts.vendor;
+  if (opts.username) document.getElementById('device-console-user').value = opts.username;
+  if (opts.password) document.getElementById('device-console-pass').value = opts.password;
+  if (opts.port) document.getElementById('device-console-port').value = opts.port;
+  appendConsoleOutput(t('console.ready'), 'system');
+  if (opts.vendor) await loadCommandLibrary(opts.vendor);
+}
+
+function closeDeviceConsole() {
+  document.getElementById('device-console-modal')?.classList.add('hidden');
+  if (!document.getElementById('switch-detail-modal')?.classList.contains('hidden')) {
+    document.body.style.overflow = 'hidden';
+  } else {
+    document.body.style.overflow = '';
+  }
+}
+
+async function testDeviceConsoleConnection(fromModal = true) {
+  if (!hasPerm('manage_devices')) { alert(t('common.no_permission')); return; }
+  const payload = getConsoleConnectPayload(fromModal);
+  if (!payload.host || !payload.vendor || !payload.username || !payload.password) return;
+  try {
+    const result = await api('/network/devices/test-connection', { method: 'POST', body: payload });
+    if (result.ok) {
+      deviceConsoleState.connected = true;
+      Object.assign(deviceConsoleState, payload);
+      document.getElementById('device-console-title').textContent = result.hostname || payload.host;
+      document.getElementById('device-console-subtitle').textContent =
+        `${vendorLabel(payload.vendor)} · ${payload.host}` +
+        (result.model ? ` · ${result.model}` : '');
+      appendConsoleOutput(t('console.connected', { host: result.hostname || payload.host }), 'success');
+      if (result.preview) appendConsoleOutput(result.preview, 'output');
+      await loadCommandLibrary(payload.vendor);
+    } else {
+      appendConsoleOutput(result.message || t('console.failed'), 'error');
+    }
+  } catch (e) { appendConsoleOutput(e.message, 'error'); }
+}
+
+async function runDeviceConsoleCommand() {
+  if (!hasPerm('manage_devices')) { alert(t('common.no_permission')); return; }
+  const input = document.getElementById('device-console-input');
+  const command = input?.value?.trim();
+  if (!command) return;
+  const mode = document.getElementById('device-console-mode')?.value || 'exec';
+  appendConsoleOutput(`> ${command}`, 'command');
+  input.value = '';
+
+  try {
+    let result;
+    if (deviceConsoleState.deviceId) {
+      result = await api(`/network/devices/${deviceConsoleState.deviceId}/execute`, {
+        method: 'POST', body: { command, mode },
+      });
+    } else {
+      const payload = getConsoleConnectPayload(true);
+      if (!payload.host) throw new Error(t('console.failed'));
+      result = await api('/network/devices/connect/execute', {
+        method: 'POST', body: { ...payload, command, mode },
+      });
+    }
+    if (result.ok) appendConsoleOutput(result.output || '(empty)', 'output');
+    else appendConsoleOutput(result.error || t('console.failed'), 'error');
+  } catch (e) { appendConsoleOutput(e.message, 'error'); }
+}
+
+async function runLibraryCommand(commandId) {
+  const cmd = deviceConsoleState.commandLibrary.find(c => c.id === commandId);
+  if (!cmd) return;
+  document.getElementById('device-console-input').value = cmd.command;
+  document.getElementById('device-console-mode').value = cmd.mode || 'exec';
+  await runDeviceConsoleCommand();
+}
+
+function openDeviceConsoleFromSwitch() {
+  if (!currentSwitchDetail?.device) return;
+  openDeviceConsole({ deviceId: currentSwitchDetail.device.id, device: currentSwitchDetail.device });
+}
+
+function renderSwitchConsoleTab() {
+  const panel = document.getElementById('switch-tab-console');
+  if (!panel) return;
+  const canManage = hasPerm('manage_devices');
+  panel.innerHTML = `
+    <div class="switch-console-panel">
+      <p class="muted">${t('console.switch_hint')}</p>
+      ${canManage ? `<button type="button" onclick="openDeviceConsoleFromSwitch()">${t('console.open_live')}</button>` : `<p class="muted">${t('common.no_permission')}</p>`}
+    </div>`;
+}
+
+function renderNetctrlConsoleDevices(devices) {
+  const el = document.getElementById('netctrl-console-devices');
+  if (!el) return;
+  const sshDevices = devices.filter(d => ['cisco', 'juniper', 'palo_alto', 'fortinet'].includes(d.vendor));
+  if (!sshDevices.length) {
+    el.innerHTML = '';
+    return;
+  }
+  el.innerHTML = `<h4>${t('console.registered_devices')}</h4>` +
+    sshDevices.map(d => `
+      <div class="console-device-item">
+        <div><strong>${d.name}</strong><div class="muted">${vendorLabel(d.vendor)} · ${d.ip_address}</div></div>
+        <button type="button" class="btn-sm" onclick="openDeviceConsole({deviceId:${d.id}, vendor:'${d.vendor}', device:{id:${d.id},name:'${d.name.replace(/'/g, "\\'")}',vendor:'${d.vendor}',ip_address:'${d.ip_address}'}})">${t('console.open_console')}</button>
+      </div>`).join('');
+}
+
+function populateNetctrlTemplateDevices(devices) {
+  const sel = document.getElementById('netctrl-template-device');
+  if (!sel) return;
+  sel.innerHTML = `<option value="">—</option>` +
+    devices.filter(d => ['cisco', 'juniper', 'palo_alto', 'fortinet'].includes(d.vendor))
+      .map(d => `<option value="${d.id}">${d.name} (${d.ip_address})</option>`).join('');
+}
+
+async function openNetctrlConsoleFromForm() {
+  const payload = getConsoleConnectPayload(false);
+  if (!payload.host || !payload.vendor || !payload.username || !payload.password) return;
+  await openDeviceConsole(payload);
+  await testDeviceConsoleConnection(false);
+}
+
 async function openSwitchDetail(deviceId) {
   if (!deviceId) return;
   try {
@@ -1091,6 +1309,11 @@ function renderSwitchDetailModal(d) {
   if (syncBtn) {
     syncBtn.classList.toggle('hidden', !dev.snmp_inventory || !hasPerm('manage_devices'));
     syncBtn.onclick = () => syncSwitchSnmp(dev.id);
+  }
+  const consoleBtn = document.getElementById('switch-open-console');
+  if (consoleBtn) {
+    consoleBtn.classList.toggle('hidden', !hasPerm('manage_devices'));
+    consoleBtn.onclick = () => openDeviceConsoleFromSwitch();
   }
 
   document.getElementById('switch-detail-insights').innerHTML =
@@ -1198,6 +1421,7 @@ function renderSwitchDetailModal(d) {
     </tr>`).join('')}</tbody></table>
   ` : `<p class="muted">${t('netctrl.no_firewall')}</p>`;
 
+  renderSwitchConsoleTab();
   activateSwitchDetailTab('ports');
   renderSwitchLocalTopology(d.local_topology);
 }
@@ -1250,6 +1474,7 @@ function activateSwitchDetailTab(name) {
   document.querySelectorAll('.switch-dtab').forEach(t => t.classList.toggle('active', t.dataset.switchTab === name));
   document.querySelectorAll('.switch-tab-panel').forEach(p => p.classList.add('hidden'));
   document.getElementById(`switch-tab-${name}`)?.classList.remove('hidden');
+  if (name === 'console') renderSwitchConsoleTab();
 }
 
 document.querySelectorAll('.switch-dtab').forEach(tab => {
@@ -1289,6 +1514,7 @@ function selectNetctrlTemplate(id) {
     </label>
   `).join('');
   document.getElementById('netctrl-template-output').textContent = '';
+  document.getElementById('netctrl-apply-template')?.classList.toggle('hidden', !hasPerm('manage_devices'));
 }
 
 document.querySelectorAll('.netctrl-tab').forEach(tab => {
@@ -1322,7 +1548,46 @@ document.getElementById('netctrl-render-template')?.addEventListener('click', as
       method: 'POST', body: { variables },
     });
     document.getElementById('netctrl-template-output').textContent = result.config;
+    document.getElementById('netctrl-apply-template')?.classList.remove('hidden');
   } catch (e) { alert(e.message); }
+});
+
+document.getElementById('netctrl-apply-template')?.addEventListener('click', async () => {
+  if (!selectedNetctrlTemplate || !hasPerm('manage_devices')) return;
+  const deviceId = Number(document.getElementById('netctrl-template-device')?.value);
+  if (!deviceId) { alert(t('console.target_device')); return; }
+  if (!confirm(t('console.apply_confirm'))) return;
+  const variables = {};
+  (selectedNetctrlTemplate.variables || []).forEach(v => {
+    const el = document.getElementById(`tpl-var-${v.name}`);
+    if (el && el.value) variables[v.name] = v.type === 'number' ? Number(el.value) : el.value;
+  });
+  try {
+    const result = await api(`/network/config-templates/${selectedNetctrlTemplate.id}/apply`, {
+      method: 'POST', body: { device_id: deviceId, variables },
+    });
+    document.getElementById('netctrl-template-output').textContent = result.output || t('console.apply_ok');
+    alert(result.ok ? t('console.apply_ok') : (result.error || t('console.failed')));
+  } catch (e) { alert(e.message); }
+});
+
+document.getElementById('netctrl-console-test')?.addEventListener('click', async () => {
+  await openNetctrlConsoleFromForm();
+});
+document.getElementById('netctrl-console-open')?.addEventListener('click', openNetctrlConsoleFromForm);
+document.getElementById('device-console-connect')?.addEventListener('click', () => testDeviceConsoleConnection(true));
+document.getElementById('device-console-run')?.addEventListener('click', runDeviceConsoleCommand);
+document.getElementById('device-console-clear')?.addEventListener('click', () => {
+  clearConsoleOutput();
+  appendConsoleOutput(t('console.ready'), 'system');
+});
+document.getElementById('device-console-close')?.addEventListener('click', closeDeviceConsole);
+document.getElementById('device-console-backdrop')?.addEventListener('click', closeDeviceConsole);
+document.getElementById('device-console-input')?.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); runDeviceConsoleCommand(); }
+});
+document.getElementById('device-console-vendor')?.addEventListener('change', (e) => {
+  loadCommandLibrary(e.target.value);
 });
 
 async function syncSwitchSnmp(deviceId) {
@@ -2309,6 +2574,10 @@ document.getElementById('excel-apply-btn')?.addEventListener('click', async () =
 window.openSwitchDetail = openSwitchDetail;
 window.closeSwitchDetail = closeSwitchDetail;
 window.showPortDetail = showPortDetail;
+window.openDeviceConsole = openDeviceConsole;
+window.closeDeviceConsole = closeDeviceConsole;
+window.runLibraryCommand = runLibraryCommand;
+window.openDeviceConsoleFromSwitch = openDeviceConsoleFromSwitch;
 window.openDatacenterDetail = openDatacenterDetail;
 window.switchDcTab = switchDcTab;
 window.ackAlert = ackAlert;

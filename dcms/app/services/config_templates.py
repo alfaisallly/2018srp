@@ -227,6 +227,69 @@ set firewall family inet filter {{ filter_name }} term {{ term_name }} then {{ a
 """,
     },
     {
+        "vendor": VendorType.PALO_ALTO,
+        "category": "firewall",
+        "name": "palo_alto_security_rule",
+        "description": "إنشاء قاعدة أمان على Palo Alto",
+        "variables": [
+            {"name": "rule_name", "label": "اسم القاعدة", "type": "text", "required": True},
+            {"name": "from_zone", "label": "منطقة المصدر", "type": "text", "required": True, "example": "trust"},
+            {"name": "to_zone", "label": "منطقة الوجهة", "type": "text", "required": True, "example": "untrust"},
+            {"name": "source", "label": "المصدر", "type": "text", "required": True, "example": "any"},
+            {"name": "destination", "label": "الوجهة", "type": "text", "required": True, "example": "any"},
+            {"name": "application", "label": "التطبيق", "type": "text", "required": True, "example": "any"},
+            {"name": "service", "label": "الخدمة", "type": "text", "required": True, "example": "application-default"},
+            {"name": "action", "label": "الإجراء", "type": "text", "required": True, "example": "allow"},
+        ],
+        "tags": ["firewall", "security", "policy"],
+        "template_body": """set rulebase security rules {{ rule_name }} from {{ from_zone }}
+set rulebase security rules {{ rule_name }} to {{ to_zone }}
+set rulebase security rules {{ rule_name }} source {{ source }}
+set rulebase security rules {{ rule_name }} destination {{ destination }}
+set rulebase security rules {{ rule_name }} application {{ application }}
+set rulebase security rules {{ rule_name }} service {{ service }}
+set rulebase security rules {{ rule_name }} action {{ action }}
+""",
+    },
+    {
+        "vendor": VendorType.PALO_ALTO,
+        "category": "firewall",
+        "name": "palo_alto_nat_rule",
+        "description": "قاعدة NAT على Palo Alto",
+        "variables": [
+            {"name": "rule_name", "label": "اسم القاعدة", "type": "text", "required": True},
+            {"name": "from_zone", "label": "منطقة المصدر", "type": "text", "required": True},
+            {"name": "to_zone", "label": "منطقة الوجهة", "type": "text", "required": True},
+            {"name": "source", "label": "المصدر", "type": "text", "required": True},
+            {"name": "destination", "label": "الوجهة", "type": "text", "required": True},
+            {"name": "translated_address", "label": "العنوان المترجم", "type": "text", "required": True},
+        ],
+        "tags": ["firewall", "nat"],
+        "template_body": """set rulebase nat rules {{ rule_name }} from {{ from_zone }}
+set rulebase nat rules {{ rule_name }} to {{ to_zone }}
+set rulebase nat rules {{ rule_name }} source {{ source }}
+set rulebase nat rules {{ rule_name }} destination {{ destination }}
+set rulebase nat rules {{ rule_name }} source-translation translated-address {{ translated_address }}
+""",
+    },
+    {
+        "vendor": VendorType.PALO_ALTO,
+        "category": "routing",
+        "name": "palo_alto_static_route",
+        "description": "مسار ثابت على Palo Alto",
+        "variables": [
+            {"name": "route_name", "label": "اسم المسار", "type": "text", "required": True},
+            {"name": "destination", "label": "الوجهة", "type": "text", "required": True, "example": "0.0.0.0/0"},
+            {"name": "nexthop", "label": "Next-hop", "type": "text", "required": True},
+            {"name": "interface", "label": "الواجهة", "type": "text", "required": False},
+        ],
+        "tags": ["routing", "static"],
+        "template_body": """set network virtual-router default routing-table ip static-route {{ route_name }} destination {{ destination }}
+set network virtual-router default routing-table ip static-route {{ route_name }} nexthop ip-address {{ nexthop }}
+{% if interface %}set network virtual-router default routing-table ip static-route {{ route_name }} interface {{ interface }}
+{% endif %}""",
+    },
+    {
         "vendor": VendorType.FORTINET,
         "category": "firewall",
         "name": "fortinet_policy",

@@ -27,6 +27,7 @@ class VendorType(str, enum.Enum):
     CISCO = "cisco"
     JUNIPER = "juniper"
     FORTINET = "fortinet"
+    PALO_ALTO = "palo_alto"
     GENERIC = "generic"
 
 

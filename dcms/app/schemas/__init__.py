@@ -903,3 +903,55 @@ class SnmpTransportSyncResult(BaseModel):
     success: int = 0
     failed: int = 0
     results: list[dict] = Field(default_factory=list)
+
+
+class CommandLibraryEntry(BaseModel):
+    id: str
+    vendor: str
+    category: str
+    name: str
+    label_ar: str
+    label_en: str
+    command: str
+    mode: str = "exec"
+
+
+class DeviceConnectionRequest(BaseModel):
+    host: str
+    vendor: VendorType
+    username: str
+    password: str
+    port: int = 22
+
+
+class DeviceConnectionTestResponse(BaseModel):
+    ok: bool
+    hostname: str | None = None
+    model: str | None = None
+    os_version: str | None = None
+    message: str | None = None
+    preview: str | None = None
+
+
+class DeviceExecuteRequest(BaseModel):
+    command: str
+    mode: str = "exec"
+
+
+class DeviceExecuteByConnectionRequest(DeviceConnectionRequest, DeviceExecuteRequest):
+    pass
+
+
+class DeviceExecuteResponse(BaseModel):
+    ok: bool
+    command: str
+    output: str = ""
+    error: str | None = None
+    device_id: int | None = None
+    device_name: str | None = None
+    host: str | None = None
+
+
+class ConfigTemplateApplyRequest(BaseModel):
+    device_id: int
+    variables: dict = Field(default_factory=dict)

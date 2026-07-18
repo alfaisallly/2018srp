@@ -13,6 +13,8 @@ from app.models import Device, DeviceConfigBackup, ProtocolType, VendorType
 def _config_command(vendor: VendorType) -> str:
     if vendor == VendorType.JUNIPER:
         return "show configuration | display set"
+    if vendor == VendorType.PALO_ALTO:
+        return "show config running"
     return "show running-config"
 
 
@@ -23,8 +25,8 @@ async def backup_device_config(session: AsyncSession, device_id: int) -> DeviceC
     device = result.scalar_one_or_none()
     if not device:
         raise ValueError("Device not found")
-    if device.vendor not in (VendorType.CISCO, VendorType.JUNIPER):
-        raise ValueError("Config backup supported for Cisco and Juniper only")
+    if device.vendor not in (VendorType.CISCO, VendorType.JUNIPER, VendorType.PALO_ALTO):
+        raise ValueError("Config backup supported for Cisco, Juniper, and Palo Alto only")
 
     cred = next((c for c in device.credentials if c.protocol == ProtocolType.SSH), None)
     if not cred or not cred.username or not cred.password:
@@ -65,7 +67,7 @@ async def backup_device_config(session: AsyncSession, device_id: int) -> DeviceC
 
 
 async def backup_all_eligible(session: AsyncSession, datacenter_id: int | None = None) -> dict:
-    q = select(Device).where(Device.vendor.in_([VendorType.CISCO, VendorType.JUNIPER]))
+    q = select(Device).where(Device.vendor.in_([VendorType.CISCO, VendorType.JUNIPER, VendorType.PALO_ALTO]))
     if datacenter_id:
         q = q.where(Device.datacenter_id == datacenter_id)
     devices = list((await session.execute(q)).scalars().all())
