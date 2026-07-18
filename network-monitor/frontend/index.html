@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="format-detection" content="telephone=no" />
+  <title>NetPulse — Network Monitoring</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/static/css/app.css?v=safari2" />
+</head>
+<body>
+  <div class="atmosphere" aria-hidden="true"></div>
+  <div class="grid-wash" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand-block">
+      <p class="brand">NetPulse</p>
+      <p class="brand-sub">Network operations monitor</p>
+    </div>
+    <div class="top-actions">
+      <button type="button" class="btn ghost" id="btn-refresh" title="Run all checks now">Run checks</button>
+      <button type="button" class="btn ghost" id="btn-discover">Discover</button>
+      <button type="button" class="btn primary" id="btn-add">Add target</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero-status" aria-label="Fleet summary">
+      <div class="hero-copy">
+        <h1 id="fleet-headline">Scanning fleet…</h1>
+        <p id="fleet-sub">Live reachability, latency, and change alerts across your monitored hosts.</p>
+      </div>
+      <div class="stat-rail" id="stat-rail" role="list">
+        <div class="stat up" role="listitem"><span class="stat-value" data-stat="up">0</span><span class="stat-label">Up</span></div>
+        <div class="stat down" role="listitem"><span class="stat-value" data-stat="down">0</span><span class="stat-label">Down</span></div>
+        <div class="stat degraded" role="listitem"><span class="stat-value" data-stat="degraded">0</span><span class="stat-label">Degraded</span></div>
+        <div class="stat unknown" role="listitem"><span class="stat-value" data-stat="unknown">0</span><span class="stat-label">Unknown</span></div>
+        <div class="stat alerts" role="listitem"><span class="stat-value" data-stat="alerts">0</span><span class="stat-label">Open alerts</span></div>
+      </div>
+    </section>
+
+    <section class="workspace">
+      <div class="panel targets-panel">
+        <div class="panel-head">
+          <h2>Targets</h2>
+          <div class="filters">
+            <input type="search" id="filter-q" placeholder="Filter by name, host, tag…" />
+            <select id="filter-status">
+              <option value="all">All statuses</option>
+              <option value="up">Up</option>
+              <option value="down">Down</option>
+              <option value="degraded">Degraded</option>
+              <option value="unknown">Unknown</option>
+              <option value="disabled">Disabled</option>
+            </select>
+          </div>
+        </div>
+        <div class="target-table-wrap">
+          <table class="target-table">
+            <thead>
+              <tr>
+                <th>Status</th>
+                <th>Name</th>
+                <th>Host</th>
+                <th>Probe</th>
+                <th>Latency</th>
+                <th>Last check</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="target-rows"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <aside class="side-stack">
+        <div class="panel detail-panel" id="detail-panel">
+          <div class="panel-head">
+            <h2>Target detail</h2>
+          </div>
+          <div id="detail-empty" class="empty-state">Select a target to inspect history and run an on-demand check.</div>
+          <div id="detail-body" class="detail-body hidden">
+            <div class="detail-title-row">
+              <div>
+                <p class="detail-name" id="detail-name"></p>
+                <p class="detail-host mono" id="detail-host"></p>
+              </div>
+              <span class="pill" id="detail-status"></span>
+            </div>
+            <p class="detail-msg" id="detail-msg"></p>
+            <div class="spark-wrap">
+              <svg id="sparkline" viewBox="0 0 320 80" preserveAspectRatio="none" aria-label="Latency history"></svg>
+            </div>
+            <div class="detail-actions">
+              <button type="button" class="btn primary" id="btn-check-one">Check now</button>
+              <button type="button" class="btn ghost danger" id="btn-delete">Remove</button>
+              <button type="button" class="btn ghost" id="btn-toggle">Disable</button>
+            </div>
+            <ul class="history-list" id="history-list"></ul>
+          </div>
+        </div>
+
+        <div class="panel alerts-panel">
+          <div class="panel-head">
+            <h2>Alerts</h2>
+          </div>
+          <ul class="alert-list" id="alert-list"></ul>
+        </div>
+      </aside>
+    </section>
+  </main>
+
+  <div class="modal-overlay" id="modal-add" hidden>
+    <form id="form-add" class="modal-card" action="#" method="post">
+      <h2>Add monitoring target</h2>
+      <label>Name<input name="name" required maxlength="120" placeholder="Edge router" autocomplete="off" /></label>
+      <label>Host / IP<input name="host" required maxlength="255" placeholder="192.168.1.1" autocomplete="off" /></label>
+      <div class="row-2">
+        <label>Probe
+          <select name="check_type" id="add-check-type">
+            <option value="ping">ICMP ping</option>
+            <option value="tcp">TCP port</option>
+            <option value="http">HTTP(S)</option>
+          </select>
+        </label>
+        <label>Port<input name="port" type="number" min="1" max="65535" placeholder="443" inputmode="numeric" /></label>
+      </div>
+      <label>HTTP path<input name="path" value="/" placeholder="/" /></label>
+      <label>Tags<input name="tags" placeholder="core, wan" /></label>
+      <label>Notes<textarea name="notes" rows="2" placeholder="Optional context"></textarea></label>
+      <div class="modal-actions">
+        <button type="submit" class="btn primary">Save target</button>
+        <button type="button" class="btn ghost" id="btn-cancel-add">Cancel</button>
+      </div>
+    </form>
+  </div>
+
+  <noscript>
+    <p style="padding:1rem;font-family:sans-serif">JavaScript is required for NetPulse.</p>
+  </noscript>
+  <script src="/static/js/app.js?v=safari2" defer></script>
+</body>
+</html>
