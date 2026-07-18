@@ -51,6 +51,7 @@ async def migrate_schema(conn) -> None:
         "ALTER TYPE storagevendor ADD VALUE IF NOT EXISTS 'pure_storage'",
         "ALTER TYPE protocoltype ADD VALUE IF NOT EXISTS 'ipmi'",
         "ALTER TYPE protocoltype ADD VALUE IF NOT EXISTS 'winrm'",
+        "ALTER TYPE vendortype ADD VALUE IF NOT EXISTS 'palo_alto'",
     ]
     for stmt in migrations:
         try:

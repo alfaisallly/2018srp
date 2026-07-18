@@ -45,7 +45,7 @@ async def list_eligible_devices(
     query = (
         select(Device)
         .options(selectinload(Device.credentials))
-        .where(Device.vendor.in_([VendorType.CISCO, VendorType.JUNIPER]))
+        .where(Device.vendor.in_([VendorType.CISCO, VendorType.JUNIPER, VendorType.PALO_ALTO]))
         .order_by(Device.name)
     )
     if datacenter_id:

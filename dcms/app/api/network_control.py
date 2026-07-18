@@ -24,9 +24,16 @@ from app.models import (
 )
 from app.schemas import (
     BranchSiteResponse,
+    CommandLibraryEntry,
+    ConfigTemplateApplyRequest,
     ConfigTemplateRenderRequest,
     ConfigTemplateRenderResponse,
     ConfigTemplateResponse,
+    DeviceConnectionRequest,
+    DeviceConnectionTestResponse,
+    DeviceExecuteByConnectionRequest,
+    DeviceExecuteRequest,
+    DeviceExecuteResponse,
     DeviceVlanResponse,
     FirewallRuleResponse,
     NetworkLinkResponse,
@@ -37,7 +44,10 @@ from app.schemas import (
     SwitchPortResponse,
     TopologyResponse,
 )
+from app.services.command_library import list_commands
 from app.services.config_templates import render_template, validate_variables
+from app.services.device_console import apply_config_text, execute_on_device, test_connection
+from app.services.network_inventory import get_network_overview
 from app.services.network_snmp_sync import (
     NETWORK_SEGMENTS,
     get_network_segment,
@@ -409,3 +419,90 @@ async def render_config_template(
         vendor=template.vendor.value,
         config=config,
     )
+
+
+@router.get("/command-library", response_model=list[CommandLibraryEntry])
+async def command_library(
+    _: Annotated[User, Depends(require_permission(Permission.VIEW))],
+    vendor: VendorType | None = None,
+    category: str | None = None,
+):
+    return [CommandLibraryEntry(**entry) for entry in list_commands(vendor, category)]
+
+
+@router.post("/devices/test-connection", response_model=DeviceConnectionTestResponse)
+async def test_device_connection(
+    payload: DeviceConnectionRequest,
+    _: Annotated[User, Depends(require_permission(Permission.MANAGE_DEVICES))],
+):
+    result = await test_connection(
+        payload.host,
+        payload.vendor,
+        payload.username,
+        payload.password,
+        payload.port,
+    )
+    return DeviceConnectionTestResponse(**result)
+
+
+@router.post("/devices/connect/execute", response_model=DeviceExecuteResponse)
+async def execute_on_connection(
+    payload: DeviceExecuteByConnectionRequest,
+    _: Annotated[User, Depends(require_permission(Permission.MANAGE_DEVICES))],
+):
+    from app.services.device_console import execute_command
+
+    result = await execute_command(
+        payload.host,
+        payload.vendor,
+        payload.username,
+        payload.password,
+        payload.command,
+        payload.port,
+        payload.mode,
+    )
+    result["host"] = payload.host
+    return DeviceExecuteResponse(**result)
+
+
+@router.post("/devices/{device_id}/execute", response_model=DeviceExecuteResponse)
+async def execute_device_command(
+    device_id: int,
+    payload: DeviceExecuteRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission(Permission.MANAGE_DEVICES))],
+):
+    try:
+        result = await execute_on_device(db, device_id, payload.command, payload.mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return DeviceExecuteResponse(**result)
+
+
+@router.post("/config-templates/{template_id}/apply", response_model=DeviceExecuteResponse)
+async def apply_config_template(
+    template_id: int,
+    payload: ConfigTemplateApplyRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    _: Annotated[User, Depends(require_permission(Permission.MANAGE_DEVICES))],
+):
+    result = await db.execute(select(ConfigTemplate).where(ConfigTemplate.id == template_id))
+    template = result.scalar_one_or_none()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+
+    errors = validate_variables(template, payload.variables)
+    if errors:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=errors)
+
+    try:
+        config = render_template(template.template_body, payload.variables, template.variables)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=f"Render error: {exc}") from exc
+
+    try:
+        exec_result = await apply_config_text(db, payload.device_id, config)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return DeviceExecuteResponse(**exec_result)
